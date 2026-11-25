@@ -10,7 +10,7 @@ function Lines({ items, tone, mark }: { items?: string[]; tone: string; mark: st
     <ul>
       {items.map((i) => (
         <li key={i} className={tone}>
-          <span className="text-term-faint">{mark} </span>
+          <span className="mr-1.5 inline-block w-3 text-center font-bold opacity-70">{mark}</span>
           {i}
         </li>
       ))}
@@ -20,16 +20,16 @@ function Lines({ items, tone, mark }: { items?: string[]; tone: string; mark: st
 
 function Url({ href }: { href: string }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="text-term-cyan hover:underline">
+    <a href={href} target="_blank" rel="noreferrer" className="text-info hover:underline">
       {href}
     </a>
   );
 }
 
-const Code = ({ children }: { children: ReactNode }) => <code className="text-term-fg">{children}</code>;
+const Code = ({ children }: { children: ReactNode }) => <code className="text-fg">{children}</code>;
 
 function PartyTag({ party }: { party?: Party }) {
-  return party === 'third' ? <span className="mr-1 border border-term-line px-1 text-[10px] text-term-dim">3RD-PARTY</span> : null;
+  return party === 'third' ? <span className="mr-1.5 rounded bg-raised px-1.5 py-px text-[10px] font-medium uppercase text-muted">3rd-party</span> : null;
 }
 
 export function ScreenshotGallery({ shots }: { shots: Screenshot[] }) {
@@ -45,10 +45,10 @@ export function ScreenshotGallery({ shots }: { shots: Screenshot[] }) {
     <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {shots.map((s) => (
-          <button key={s.url} onClick={() => setOpen(s)} className="group border border-term-line text-left hover:border-term-green">
-            <div className="flex items-center justify-between border-b border-term-line bg-term-raised px-2 py-0.5 text-[11px]">
-              <span className="truncate text-term-dim">{s.label}.png</span>
-              <span className="shrink-0 text-term-faint group-hover:text-term-green">open ↗</span>
+          <button key={s.url} onClick={() => setOpen(s)} className="group border border-line text-left hover:border-ok">
+            <div className="flex items-center justify-between border-b border-line bg-raised px-2 py-0.5 text-[11px]">
+              <span className="truncate text-muted">{s.label}.png</span>
+              <span className="shrink-0 text-faint group-hover:text-ok">open ↗</span>
             </div>
             <div className="h-44 overflow-hidden bg-black">
               <img src={s.url} alt={`${s.label} screenshot`} loading="lazy" className="w-full object-cover object-top opacity-90 transition group-hover:opacity-100" />
@@ -59,11 +59,11 @@ export function ScreenshotGallery({ shots }: { shots: Screenshot[] }) {
       {open && (
         <div className="fixed inset-0 z-50 overflow-auto bg-black/90 p-4 sm:p-8" onClick={() => setOpen(null)}>
           <div className="mx-auto max-w-6xl">
-            <div className="mb-2 flex justify-between text-term-dim">
-              <span>$ open {open.label}.png</span>
-              <button className="text-term-fg hover:text-term-red">[esc] close</button>
+            <div className="mb-2 flex justify-between text-muted">
+              <span className="text-white/80">{open.label.replace(/-/g, ' ')}</span>
+              <button className="rounded-md bg-white/10 px-2 py-0.5 text-white hover:bg-white/20">Close (Esc)</button>
             </div>
-            <img src={open.url} alt={open.label} className="mx-auto max-w-full border border-term-line" onClick={(e) => e.stopPropagation()} />
+            <img src={open.url} alt={open.label} className="mx-auto max-w-full border border-line" onClick={(e) => e.stopPropagation()} />
           </div>
         </div>
       )}
@@ -88,26 +88,26 @@ function Smoke({ r }: { r: CheckResult }) {
       </StatGrid>
       {s.title && (
         <p>
-          <span className="text-term-dim">title: </span>"{s.title}"
+          <span className="text-muted">title: </span>"{s.title}"
         </p>
       )}
       {d.metaDescription && (
-        <p className="text-term-dim">
-          description: <span className="text-term-fg">"{d.metaDescription}"</span>
+        <p className="text-muted">
+          description: <span className="text-fg">"{d.metaDescription}"</span>
         </p>
       )}
-      <Lines items={d.issues} tone="text-term-amber" mark="!" />
+      <Lines items={d.issues} tone="text-warn" mark="!" />
       {d.notes?.length ? (
         <Section title="notes (informational — don't affect the result)">
-          <Lines items={d.notes} tone="text-term-dim" mark="i" />
+          <Lines items={d.notes} tone="text-muted" mark="i" />
         </Section>
       ) : null}
       {(d.redirectChain?.length ?? 0) > 1 && (
         <Section title="redirect chain">
           {d.redirectChain!.map((c, i) => (
-            <div key={i} className="text-term-dim">
+            <div key={i} className="text-muted">
               {i > 0 && '→ '}
-              <span className="text-term-fg">{c.status ?? '---'}</span> {c.url}
+              <span className="text-fg">{c.status ?? '---'}</span> {c.url}
             </div>
           ))}
         </Section>
@@ -120,13 +120,13 @@ function Links({ r }: { r: CheckResult }) {
   const { summary: s, details: d } = shape(r, 'links');
   const row = (p: LinkProbe) => [
     <Url href={p.url} />,
-    p.text || <span className="text-term-faint">—</span>,
+    p.text || <span className="text-faint">—</span>,
     p.status ? (
-      <span className={p.status >= 400 ? 'text-term-red' : ''}>{p.status}</span>
+      <span className={p.status >= 400 ? 'text-bad' : ''}>{p.status}</span>
     ) : (
-      <span className={p.blocked ? 'text-term-dim' : 'text-term-red'}>{p.error ?? 'no response'}</span>
+      <span className={p.blocked ? 'text-muted' : 'text-bad'}>{p.error ?? 'no response'}</span>
     ),
-    <span className="text-term-dim">{p.internal ? 'int' : 'ext'}</span>,
+    <span className="text-muted">{p.internal ? 'int' : 'ext'}</span>,
   ];
   return (
     <div className="space-y-3">
@@ -137,7 +137,7 @@ function Links({ r }: { r: CheckResult }) {
         <Stat label="broken_links" value={s.brokenLinks} tone={s.brokenLinks ? 'fail' : 'pass'} />
         <Stat label="broken_images" value={s.brokenImages} tone={s.brokenImages ? 'fail' : 'pass'} />
       </StatGrid>
-      {d.truncated && <p className="text-term-dim"># large page: only the first 150 links / 100 images were checked</p>}
+      {d.truncated && <p className="text-xs text-muted">Large page: only the first 150 links / 100 images were checked</p>}
       <Section title="broken links">
         {d.brokenLinks.length ? <Table head={['url', 'text', 'status', 'scope']} rows={d.brokenLinks.map(row)} /> : <Empty>no broken links</Empty>}
       </Section>
@@ -162,14 +162,14 @@ function ConsoleNetwork({ r }: { r: CheckResult }) {
       <Url href={n.url} />
     </>,
     n.resourceType,
-    <span className="text-term-red">{n.status ?? n.failure}</span>,
+    <span className="text-bad">{n.status ?? n.failure}</span>,
   ];
   const logRows = (list: ConsoleEntry[], tone: string) =>
     list.map((c, i) => (
-      <div key={i} className="border-b border-term-line/50 py-1 last:border-0">
+      <div key={i} className="border-b border-line/50 py-1 last:border-0">
         <PartyTag party={c.party} />
-        <span className={c.party === 'third' ? 'text-term-dim' : tone}>{c.text}</span>
-        {c.location && <div className="text-[11px] text-term-faint">  at {c.location}</div>}
+        <span className={c.party === 'third' ? 'text-muted' : tone}>{c.text}</span>
+        {c.location && <div className="text-[11px] text-faint">  at {c.location}</div>}
       </div>
     ));
   return (
@@ -182,8 +182,8 @@ function ConsoleNetwork({ r }: { r: CheckResult }) {
         <Stat label="other_failed" value={s.otherFailedRequests} tone={s.otherFailedRequests ? 'warn' : 'pass'} />
         <Stat label="third_party_issues" value={s.thirdPartyIssues ?? 0} tone={s.thirdPartyIssues ? 'warn' : undefined} />
       </StatGrid>
-      <p className="text-[11px] text-term-faint">
-        # counts above are first-party ({d.site ?? 'this site'}) only — third-party scripts (ads, analytics, widgets) are listed but can never fail this check
+      <p className="text-[11px] text-faint">
+        Counts above are first-party ({d.site ?? 'this site'}) only — third-party scripts (ads, analytics, widgets) are listed but can never fail this check
       </p>
       {d.pageErrors.length > 0 && (
         <Section title="uncaught exceptions">
@@ -192,7 +192,7 @@ function ConsoleNetwork({ r }: { r: CheckResult }) {
               key={i}
               className={cn(
                 'overflow-x-auto whitespace-pre-wrap border-l-2 p-2 text-[12px]',
-                e.party === 'third' ? 'border-term-line text-term-dim' : 'border-term-red bg-term-red/5 text-term-red',
+                e.party === 'third' ? 'border-line text-muted' : 'border-bad bg-bad/5 text-bad',
               )}
             >
               <PartyTag party={e.party} />
@@ -201,7 +201,7 @@ function ConsoleNetwork({ r }: { r: CheckResult }) {
           ))}
         </Section>
       )}
-      <Section title="console errors">{d.consoleErrors.length ? logRows(d.consoleErrors, 'text-term-red') : <Empty>console is clean</Empty>}</Section>
+      <Section title="console errors">{d.consoleErrors.length ? logRows(d.consoleErrors, 'text-bad') : <Empty>console is clean</Empty>}</Section>
       <Section title="failed api requests (xhr / fetch)">
         {d.apiFailures.length ? <Table head={['method', 'url', 'type', 'status']} rows={d.apiFailures.map(net)} /> : <Empty>no failed api calls</Empty>}
       </Section>
@@ -210,7 +210,7 @@ function ConsoleNetwork({ r }: { r: CheckResult }) {
           <Table head={['method', 'url', 'type', 'status']} rows={d.otherFailures.map(net)} />
         </Section>
       )}
-      {d.consoleWarnings.length > 0 && <Section title="console warnings">{logRows(d.consoleWarnings, 'text-term-amber')}</Section>}
+      {d.consoleWarnings.length > 0 && <Section title="console warnings">{logRows(d.consoleWarnings, 'text-warn')}</Section>}
     </div>
   );
 }
@@ -222,18 +222,18 @@ function Responsive({ r }: { r: CheckResult }) {
       <div>
         {d.viewports.map((v) => (
           <div key={v.label} className="flex flex-wrap items-baseline gap-x-3">
-            <span className="w-20 text-term-fg">{v.label}</span>
-            <span className="w-24 text-term-dim">
+            <span className="w-20 text-fg">{v.label}</span>
+            <span className="w-24 text-muted">
               {v.width}×{v.height}
             </span>
             {v.error ? (
-              <span className="text-term-amber">error: {v.error}</span>
+              <span className="text-warn">error: {v.error}</span>
             ) : v.horizontalOverflow ? (
-              <span className="text-term-red">✗ horizontal overflow {v.overflowPx}px</span>
+              <span className="text-bad">✗ horizontal overflow {v.overflowPx}px</span>
             ) : (
-              <span className="text-term-green">✓ no horizontal overflow</span>
+              <span className="text-ok">✓ no horizontal overflow</span>
             )}
-            {v.partial && <span className="text-term-faint">(page still loading — measured what had rendered)</span>}
+            {v.partial && <span className="text-faint">(page still loading — measured what had rendered)</span>}
           </div>
         ))}
       </div>
@@ -250,10 +250,10 @@ function Responsive({ r }: { r: CheckResult }) {
 }
 
 const IMPACT_CLS: Record<string, string> = {
-  critical: 'bg-term-red text-term-bg',
-  serious: 'text-term-red',
-  moderate: 'text-term-amber',
-  minor: 'text-term-dim',
+  critical: 'bg-bad text-bg',
+  serious: 'text-bad',
+  moderate: 'text-warn',
+  minor: 'text-muted',
 };
 
 function Accessibility({ r }: { r: CheckResult }) {
@@ -269,8 +269,8 @@ function Accessibility({ r }: { r: CheckResult }) {
         <Stat label="needs_review" value={s.incomplete} />
       </StatGrid>
       {d.highlighted ? (
-        <p className="text-[11px] text-term-faint">
-          # screenshot outlines {d.highlighted} failing element{d.highlighted === 1 ? '' : 's'} — <span style={{ color: '#ff2d55' }}>critical</span> ·{' '}
+        <p className="text-[11px] text-faint">
+          The screenshot outlines {d.highlighted} failing element{d.highlighted === 1 ? '' : 's'} — <span style={{ color: '#ff2d55' }}>critical</span> ·{' '}
           <span style={{ color: '#ff6b3d' }}>serious</span> · <span style={{ color: '#f5b400' }}>moderate</span> · <span style={{ color: '#4aa8ff' }}>minor</span>
         </p>
       ) : null}
@@ -278,22 +278,22 @@ function Accessibility({ r }: { r: CheckResult }) {
         <div className="space-y-1">
           {d.violations.map((v) => (
             <details key={v.id} className="group">
-              <summary className="flex cursor-pointer list-none items-baseline gap-2 px-1 hover:bg-term-raised">
-                <span className="text-term-faint group-open:hidden">▸</span>
-                <span className="hidden text-term-faint group-open:inline">▾</span>
+              <summary className="flex cursor-pointer list-none items-baseline gap-2 px-1 hover:bg-raised">
+                <span className="text-faint group-open:hidden">▸</span>
+                <span className="hidden text-faint group-open:inline">▾</span>
                 <span className={cn('w-20 shrink-0 px-1 text-center text-[11px] font-bold uppercase', IMPACT_CLS[v.impact])}>{v.impact}</span>
                 <span className="flex-1">{v.help}</span>
-                <span className="shrink-0 text-term-dim">×{v.nodeCount}</span>
+                <span className="shrink-0 text-muted">×{v.nodeCount}</span>
               </summary>
-              <div className="ml-6 space-y-1.5 border-l border-term-line py-2 pl-3">
-                <p className="text-term-dim">{v.description}</p>
-                <a href={v.helpUrl} target="_blank" rel="noreferrer" className="text-term-cyan hover:underline">
+              <div className="ml-6 space-y-1.5 border-l border-line py-2 pl-3">
+                <p className="text-muted">{v.description}</p>
+                <a href={v.helpUrl} target="_blank" rel="noreferrer" className="text-info hover:underline">
                   → how to fix: {v.id}
                 </a>
                 {v.nodes.map((n, i) => (
                   <div key={i} className="text-[12px]">
-                    <div className="text-term-violet">{n.target}</div>
-                    <div className="break-all text-term-dim">{n.html}</div>
+                    <div className="text-accent">{n.target}</div>
+                    <div className="break-all text-muted">{n.html}</div>
                   </div>
                 ))}
               </div>
@@ -303,18 +303,18 @@ function Accessibility({ r }: { r: CheckResult }) {
       ) : (
         <Empty>no WCAG 2.1 A/AA violations detected by axe-core</Empty>
       )}
-      <p className="text-[11px] text-term-faint"># automated testing finds ~30–40% of accessibility issues — manual review still recommended</p>
+      <p className="text-xs text-faint">Automated testing finds ~30–40% of accessibility issues — manual review still recommended</p>
     </div>
   );
 }
 
 const PERF: [key: PerfMetricKey | 'domContentLoaded', label: string][] = [
-  ['ttfb', 'ttfb'],
-  ['fcp', 'first_contentful_paint'],
-  ['lcp', 'largest_contentful_paint'],
-  ['cls', 'cumulative_layout_shift'],
-  ['load', 'page_load'],
-  ['domContentLoaded', 'dom_content_loaded'],
+  ['ttfb', 'Time to First Byte (TTFB)'],
+  ['fcp', 'First Contentful Paint (FCP)'],
+  ['lcp', 'Largest Contentful Paint (LCP)'],
+  ['cls', 'Cumulative Layout Shift (CLS)'],
+  ['load', 'Page load'],
+  ['domContentLoaded', 'DOM content loaded'],
 ];
 
 function Performance({ r }: { r: CheckResult }) {
@@ -326,35 +326,35 @@ function Performance({ r }: { r: CheckResult }) {
     <div className="space-y-3">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[420px] text-left">
-          <thead className="text-[11px] uppercase text-term-faint">
-            <tr className="border-b border-term-line">
+          <thead className="text-[11px] uppercase text-faint">
+            <tr className="border-b border-line">
               <th className="py-1 pr-4 font-normal">metric</th>
-              <th className="py-1 pr-4 text-right font-normal">desktop</th>
-              <th className="py-1 text-right font-normal">mobile · 4G · 4× cpu</th>
+              <th className="py-1 pr-4 text-right font-normal">Desktop</th>
+              <th className="py-1 text-right font-normal">Mobile (4G · 4× CPU)</th>
             </tr>
           </thead>
           <tbody>
             {PERF.map(([k, label]) => (
-              <tr key={k} className="border-b border-term-line/40">
-                <td className="py-0.5 pr-4 text-term-dim">{label}</td>
+              <tr key={k} className="border-b border-line/40">
+                <td className="py-0.5 pr-4 text-muted">{label}</td>
                 <td className={cn('py-0.5 pr-4 text-right font-bold tabular-nums', toneCls(rating(d.ratings, k)))}>{fmt(k, s[k])}</td>
                 <td className={cn('py-0.5 text-right font-bold tabular-nums', toneCls(rating(d.mobileRatings, k)))}>
-                  {s.mobile ? fmt(k, s.mobile[k]) : <span className="font-normal text-term-faint">n/a</span>}
+                  {s.mobile ? fmt(k, s.mobile[k]) : <span className="font-normal text-faint">n/a</span>}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {d.mobileError && <p className="text-term-amber">! mobile run failed: {d.mobileError}</p>}
+      {d.mobileError && <p className="text-warn">! mobile run failed: {d.mobileError}</p>}
       <StatGrid>
         <Stat label="requests" value={s.requestCount} />
         <Stat label="transferred" value={`${s.transferKb} KB`} />
         <Stat label="dom_nodes" value={d.domNodes} />
       </StatGrid>
-      <p className="text-[11px] text-term-faint">
-        # thresholds good/poor: fcp 1.8s/3s · lcp 2.5s/4s · cls 0.1/0.25 · load 3s/6s · ttfb 0.8s/1.8s
-        <br /># {d.conditions?.desktop ?? 'desktop'} | {d.conditions?.mobile ?? 'mobile'} — result is based on desktop; a weak mobile profile lowers pass → warn
+      <p className="text-[11px] text-faint">
+        Thresholds (good / poor): fcp 1.8s/3s · lcp 2.5s/4s · cls 0.1/0.25 · load 3s/6s · ttfb 0.8s/1.8s
+        <br />{d.conditions?.desktop ?? 'desktop'} | {d.conditions?.mobile ?? 'mobile'} — result is based on desktop; a weak mobile profile lowers pass → warn
       </p>
       {d.slowestResources.length > 0 && (
         <Section title="slowest resources (desktop)">
@@ -364,7 +364,7 @@ function Performance({ r }: { r: CheckResult }) {
               <span className="text-[11px]">{x.url}</span>,
               x.type,
               formatMs(x.durationMs),
-              x.bytes ? `${Math.round(x.bytes / 1024)} KB` : <span className="text-term-faint">cached</span>,
+              x.bytes ? `${Math.round(x.bytes / 1024)} KB` : <span className="text-faint">cached</span>,
             ])}
           />
         </Section>
@@ -390,23 +390,23 @@ function Security({ r }: { r: CheckResult }) {
       <div>
         {d.headers?.map((h) => (
           <div key={h.header} className="flex gap-2 py-0.5">
-            <span className={h.ok ? 'text-term-green' : 'text-term-amber'}>{h.ok ? '✓' : '✗'}</span>
+            <span className={h.ok ? 'text-ok' : 'text-warn'}>{h.ok ? '✓' : '✗'}</span>
             <div className="min-w-0 flex-1">
-              <span className="text-term-fg">{h.header}</span>
+              <span className="text-fg">{h.header}</span>
               {h.value ? (
-                <span className="break-all text-term-dim">: {h.value.length > 140 ? `${h.value.slice(0, 140)}…` : h.value}</span>
+                <span className="break-all text-muted">: {h.value.length > 140 ? `${h.value.slice(0, 140)}…` : h.value}</span>
               ) : (
-                <div className="text-term-dim"># {h.recommendation}</div>
+                <div className="text-xs text-muted">{h.recommendation}</div>
               )}
             </div>
           </div>
         ))}
       </div>
-      <Lines items={d.issues} tone="text-term-amber" mark="!" />
+      <Lines items={d.issues} tone="text-warn" mark="!" />
       {(d.mixedContent?.length ?? 0) > 0 && (
         <Section title="insecure resources">
           {d.mixedContent!.map((u) => (
-            <div key={u} className="break-all text-term-red">
+            <div key={u} className="break-all text-bad">
               {u}
             </div>
           ))}
@@ -435,7 +435,7 @@ export function CheckDetails({ result }: { result: CheckResult }) {
   if (result.status === 'skipped' || result.status === 'error') {
     return (
       <p>
-        <StatusBadge status={result.status} /> <span className="text-term-dim">{result.error}</span>
+        <StatusBadge status={result.status} /> <span className="text-muted">{result.error}</span>
       </p>
     );
   }

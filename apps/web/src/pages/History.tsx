@@ -1,51 +1,42 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AuditDTO } from '@pulseqa/shared';
-import { Caret, scoreTone, Spinner, StatusBadge, TermButton } from '../components/ui';
+import { Button, Card, Empty, scoreTone, StatusBadge } from '../components/ui';
 import { api } from '../lib/api';
-import { cn, formatMs, hostOf } from '../lib/format';
+import { cn, formatDate, formatMs, hostOf } from '../lib/format';
 
 const LIMIT = 20;
 
-const stamp = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
-
 function Row({ a, onDelete, deleting }: { a: AuditDTO; onDelete: () => void; deleting: boolean }) {
-  const [confirming, setConfirming] = useState(false);
   const busy = a.status === 'running' || a.status === 'queued';
   return (
-    <tr className="group border-b border-term-line/50 hover:bg-term-raised">
-      <td className="py-1 pr-4 text-term-dim">{a.id.slice(0, 8)}</td>
-      <td className="whitespace-nowrap py-1 pr-4 text-term-dim">{stamp(a.createdAt)}</td>
-      <td className={cn('py-1 pr-4 text-right font-bold tabular-nums', scoreTone(a.score))}>{a.score ?? '--'}</td>
-      <td className="py-1 pr-4">
-        <StatusBadge status={a.status === 'completed' && a.overallStatus ? a.overallStatus : a.status} />
+    <tr className="group hover:bg-raised/60">
+      <td className="px-4 py-3">
+        <span className={cn('text-lg font-bold tabular-nums', scoreTone(a.score))}>{a.score ?? '—'}</span>
       </td>
-      <td className="whitespace-nowrap py-1 pr-4 text-right tabular-nums text-term-dim">{formatMs(a.durationMs)}</td>
-      <td className="max-w-0 w-full py-1 pr-4">
-        <Link to={`/audits/${a.id}`} className="block truncate text-term-cyan hover:underline" title={a.url}>
-          {hostOf(a.url)}
-          <span className="text-term-dim">{a.url.replace(/^https?:\/\/[^/]+/, '').replace(/\/$/, '')}</span>
+      <td className="max-w-0 w-full px-4 py-3">
+        <Link to={`/audits/${a.id}`} className="block min-w-0">
+          <span className="block truncate font-medium group-hover:text-brand-strong">{hostOf(a.url)}</span>
+          <span className="block truncate text-xs text-muted">{a.url}</span>
         </Link>
       </td>
-      <td className="whitespace-nowrap py-1 text-right">
-        {confirming ? (
-          <span className="space-x-2">
-            <span className="text-term-amber">rm?</span>
-            <button className="text-term-red hover:underline" onClick={onDelete} disabled={deleting}>y</button>
-            <button className="text-term-dim hover:underline" onClick={() => setConfirming(false)}>n</button>
-          </span>
-        ) : (
-          <button
-            onClick={() => setConfirming(true)}
-            disabled={busy}
-            className="text-term-faint opacity-0 transition hover:text-term-red focus-visible:opacity-100 group-hover:opacity-100 disabled:hidden"
-            aria-label={`Delete audit of ${a.url}`}
-          >
-            rm
-          </button>
-        )}
+      <td className="px-4 py-3">
+        <StatusBadge status={a.status === 'completed' && a.overallStatus ? a.overallStatus : a.status} />
+      </td>
+      <td className="hidden whitespace-nowrap px-4 py-3 text-sm text-muted md:table-cell">{formatDate(a.createdAt)}</td>
+      <td className="hidden whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-muted sm:table-cell">{formatMs(a.durationMs)}</td>
+      <td className="px-2 py-3 text-right">
+        <button
+          onClick={() => confirm(`Delete the audit of ${a.url}? This also removes its screenshots.`) && onDelete()}
+          disabled={busy || deleting}
+          className="rounded-lg p-2 text-faint transition hover:bg-bad/10 hover:text-bad disabled:pointer-events-none disabled:opacity-30"
+          aria-label={`Delete audit of ${a.url}`}
+          title={busy ? 'Running audits can’t be deleted' : 'Delete'}
+        >
+          <Trash2 className="size-4" />
+        </button>
       </td>
     </tr>
   );
@@ -53,12 +44,22 @@ function Row({ a, onDelete, deleting }: { a: AuditDTO; onDelete: () => void; del
 
 export function History() {
   const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState('');
+  const [q, setQ] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setQ(filter.trim());
+      setPage(1);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [filter]);
+
   const qc = useQueryClient();
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['audits', page],
-    queryFn: () => api.listAudits(page, LIMIT),
+  const { data, isLoading, error, isFetching } = useQuery({
+    queryKey: ['audits', page, q],
+    queryFn: () => api.listAudits(page, LIMIT, q),
     placeholderData: keepPreviousData,
-    refetchInterval: (q) => (q.state.data?.items.some((a) => a.status === 'running' || a.status === 'queued') ? 3000 : false),
+    refetchInterval: (query) => (query.state.data?.items.some((a) => a.status === 'running' || a.status === 'queued') ? 3000 : false),
   });
   const del = useMutation({
     mutationFn: api.deleteAudit,
@@ -67,70 +68,92 @@ export function History() {
   const pages = data ? Math.max(1, Math.ceil(data.total / LIMIT)) : 1;
 
   return (
-    <div className="space-y-3">
-      <div className="text-[14px]">
-        <span className="text-term-green">qa@pulseqa</span>
-        <span className="text-term-dim">:</span>
-        <span className="text-term-cyan">~</span>
-        <span className="text-term-dim">$</span> <span className="text-term-violet">ls</span> -la audits/
-        {page > 1 && <span className="text-term-dim"> --page {page}</span>}
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Audit history</h1>
+          <p className="text-sm text-muted">
+            {data ? `${data.total} audit${data.total === 1 ? '' : 's'}${q ? ` matching “${q}”` : ''}` : ' '}
+          </p>
+        </div>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <label className="relative flex-1 sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Search by URL…"
+              aria-label="Filter audits by URL"
+              className="h-10 w-full rounded-lg border border-line bg-panel pl-9 pr-3 text-sm outline-none transition placeholder:text-faint focus:border-brand"
+            />
+            {isFetching && !isLoading && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-faint" />}
+          </label>
+          <Link to="/">
+            <Button variant="primary" className="h-10">
+              <Plus className="size-4" /> <span className="hidden sm:inline">New audit</span>
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading && (
-        <p className="text-term-cyan">
-          <Spinner /> reading audits…
-        </p>
+        <div className="flex justify-center py-16">
+          <Loader2 className="size-6 animate-spin text-muted" />
+        </div>
       )}
-      {error && <p className="text-term-red">ls: {(error as Error).message}</p>}
-      {del.isError && <p className="text-term-red">rm: {(del.error as Error).message}</p>}
+      {error && <p className="text-bad">{(error as Error).message}</p>}
+      {del.isError && <p className="text-sm text-bad">{(del.error as Error).message}</p>}
 
-      {data && (
-        <>
-          <p className="text-term-dim">total {data.total}</p>
-          {data.items.length === 0 ? (
-            <p className="text-term-dim">
-              # no audits yet —{' '}
-              <Link to="/" className="text-term-cyan hover:underline">run your first one</Link>
-            </p>
+      {data && data.items.length === 0 && (
+        <Empty>
+          {q ? (
+            <>No audits match “{q}”.</>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left">
-                <thead className="text-[11px] uppercase text-term-faint">
-                  <tr className="border-b border-term-line">
-                    <th className="py-1 pr-4 font-normal">id</th>
-                    <th className="py-1 pr-4 font-normal">date</th>
-                    <th className="py-1 pr-4 text-right font-normal">score</th>
-                    <th className="py-1 pr-4 font-normal">result</th>
-                    <th className="py-1 pr-4 text-right font-normal">time</th>
-                    <th className="py-1 pr-4 font-normal">target</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((a) => (
-                    <Row key={a.id} a={a} onDelete={() => del.mutate(a.id)} deleting={del.isPending} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              No audits yet.{' '}
+              <Link to="/" className="font-medium text-brand-strong hover:underline">
+                Run your first one
+              </Link>
+            </>
           )}
-        </>
+        </Empty>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 pt-2">
-        <span className="text-term-dim">$</span>
-        {pages > 1 && (
-          <>
-            <TermButton disabled={page === 1} onClick={() => setPage((p) => p - 1)}>← prev</TermButton>
-            <span className="text-term-dim">
-              {page}/{pages}
-            </span>
-            <TermButton disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>next →</TermButton>
-          </>
-        )}
-        <Link to="/" className="border border-term-line px-2 py-0.5 hover:border-term-green hover:text-term-green">+ new audit</Link>
-        <Caret />
-      </div>
+      {data && data.items.length > 0 && (
+        <Card className="overflow-hidden">
+          <table className="w-full text-left">
+            <thead className="border-b border-line bg-raised text-xs text-muted">
+              <tr>
+                <th className="px-4 py-2 font-medium">Score</th>
+                <th className="px-4 py-2 font-medium">Website</th>
+                <th className="px-4 py-2 font-medium">Result</th>
+                <th className="hidden px-4 py-2 font-medium md:table-cell">Date</th>
+                <th className="hidden px-4 py-2 text-right font-medium sm:table-cell">Duration</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {data.items.map((a) => (
+                <Row key={a.id} a={a} onDelete={() => del.mutate(a.id)} deleting={del.isPending} />
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {pages > 1 && (
+        <div className="flex items-center justify-center gap-3 text-sm">
+          <Button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+            Previous
+          </Button>
+          <span className="text-muted">
+            Page {page} of {pages}
+          </span>
+          <Button disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
