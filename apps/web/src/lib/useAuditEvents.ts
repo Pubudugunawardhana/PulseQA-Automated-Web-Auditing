@@ -14,7 +14,7 @@ export function useAuditEvents(id: string, enabled: boolean) {
 
   useEffect(() => {
     if (!enabled) return;
-    const es = new EventSource(`/api/audits/${id}/events`);
+    const es = new EventSource(`/api/audits/${id}/events`, { withCredentials: true });
     const update = (fn: (a: AuditDetailDTO) => AuditDetailDTO) =>
       qc.setQueryData<AuditDetailDTO>(auditKey(id), (old) => (old ? fn(old) : old));
 

@@ -11,6 +11,7 @@ import {
   deleteAudit,
   findActiveDuplicate,
   getAuditDetail,
+  getAuditOwner,
   getPreviousAudit,
   listAudits,
 } from '../audit/repository.js';
@@ -50,40 +51,46 @@ auditsRouter.post('/', createLimiter, async (req, res) => {
 
   const checks = body.data.checks ? [...new Set(body.data.checks)] : [...CHECK_IDS];
 
-  // Same URL + same checks already queued/running here → return that one instead of a duplicate.
-  const existing = await findActiveDuplicate(url, checks);
+  // This browser already has the same URL + checks queued/running → return that one instead of a duplicate.
+  const existing = await findActiveDuplicate(url, checks, req.ownerHash);
   if (existing && isTracked(existing.id)) return res.status(200).json({ ...existing, deduplicated: true });
 
-  const audit = await createAudit(url, checks);
+  const audit = await createAudit(url, checks, req.ownerHash);
   scheduleAudit(audit.id, url, checks);
   res.status(202).json(audit);
 });
 
+/** History: only the audits created by THIS browser. */
 auditsRouter.get('/', async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
   const q = typeof req.query.q === 'string' && req.query.q.trim() ? req.query.q.trim().slice(0, 200) : undefined;
-  res.json(await listAudits(page, limit, q));
+  res.json(await listAudits(req.ownerHash, page, limit, q));
 });
 
+/** Anyone with the (unguessable) link can VIEW an audit; `isOwner` tells the UI whether to offer cancel/delete. */
 auditsRouter.get('/:id', async (req, res) => {
   if (!uuid.safeParse(req.params.id).success) return res.status(404).json({ error: 'Audit not found' });
-  const audit = await getAuditDetail(req.params.id);
+  const [audit, owner] = await Promise.all([getAuditDetail(req.params.id), getAuditOwner(req.params.id)]);
   if (!audit) return res.status(404).json({ error: 'Audit not found' });
-  res.json(audit);
+  res.json({ ...audit, isOwner: owner === req.ownerHash });
 });
 
-/** Previous completed run of the same URL (for the compare view). 204 when there is none. */
+/** Previous completed run of the same URL by the same owner (compare view). Owner only; 204 when none. */
 auditsRouter.get('/:id/previous', async (req, res) => {
   if (!uuid.safeParse(req.params.id).success) return res.status(404).json({ error: 'Audit not found' });
+  if ((await getAuditOwner(req.params.id)) !== req.ownerHash) return res.status(204).end();
   const prev = await getPreviousAudit(req.params.id);
   if (!prev) return res.status(204).end();
   res.json(prev);
 });
 
-auditsRouter.post('/:id/cancel', (req, res) => {
+auditsRouter.post('/:id/cancel', async (req, res) => {
   const id = String(req.params.id);
   if (!uuid.safeParse(id).success) return res.status(404).json({ error: 'Audit not found' });
+  const owner = await getAuditOwner(id);
+  if (owner === undefined) return res.status(404).json({ error: 'Audit not found' });
+  if (owner !== req.ownerHash) return res.status(403).json({ error: 'Only the person who started this audit can cancel it' });
   if (!cancel(id)) return res.status(409).json({ error: 'Audit is not running' });
   res.status(202).json({ ok: true });
 });
@@ -121,7 +128,8 @@ auditsRouter.get('/:id/events', async (req: Request, res: Response) => {
     send({ type: 'audit:failed', auditId: id, error: 'Audit not found' });
     return close();
   }
-  send({ type: 'snapshot', audit: snapshot });
+  const owner = await getAuditOwner(id).catch(() => undefined);
+  send({ type: 'snapshot', audit: { ...snapshot, isOwner: owner === req.ownerHash } });
   if (!['queued', 'running'].includes(snapshot.status)) close();
   else if (!isTracked(id)) {
     // DB says running but this process doesn't own it (e.g. after a restart)
@@ -133,6 +141,9 @@ auditsRouter.get('/:id/events', async (req: Request, res: Response) => {
 auditsRouter.delete('/:id', async (req, res) => {
   const id = String(req.params.id);
   if (!uuid.safeParse(id).success) return res.status(404).json({ error: 'Audit not found' });
+  const owner = await getAuditOwner(id);
+  if (owner === undefined) return res.status(404).json({ error: 'Audit not found' });
+  if (owner !== req.ownerHash) return res.status(403).json({ error: 'Only the person who started this audit can delete it' });
   if (isTracked(id)) return res.status(409).json({ error: 'Audit is still running' });
   const ok = await deleteAudit(id);
   if (!ok) return res.status(404).json({ error: 'Audit not found' });

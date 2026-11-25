@@ -64,6 +64,8 @@ export interface AuditDTO {
 
 export interface AuditDetailDTO extends AuditDTO {
   results: CheckResult[];
+  /** True when the requesting browser created this audit (can cancel/delete). Others get a read-only view. */
+  isOwner?: boolean;
 }
 
 export interface AuditListDTO {

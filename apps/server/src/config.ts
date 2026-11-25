@@ -13,6 +13,10 @@ const schema = z.object({
   ALLOW_PRIVATE_HOSTS: bool.default(true),
   ARTIFACTS_DIR: z.string().default('./artifacts'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
+  /** Only when the web app and API are on DIFFERENT sites: owner cookie becomes SameSite=None; Secure. */
+  CROSS_SITE_COOKIES: bool,
+  /** Built web app to serve from the API (single-service deploy). Ignored if the folder doesn't exist. */
+  WEB_DIST_DIR: z.string().default('../web/dist'),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -26,5 +30,7 @@ if (!parsed.success) {
 export const config = {
   ...parsed.data,
   ALLOW_PRIVATE_HOSTS: parsed.data.ALLOW_PRIVATE_HOSTS ?? true,
+  CROSS_SITE_COOKIES: parsed.data.CROSS_SITE_COOKIES ?? false,
   ARTIFACTS_DIR: path.resolve(process.cwd(), parsed.data.ARTIFACTS_DIR),
+  WEB_DIST_DIR: path.resolve(process.cwd(), parsed.data.WEB_DIST_DIR),
 };

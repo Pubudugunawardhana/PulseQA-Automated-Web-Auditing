@@ -10,13 +10,19 @@ export const audits = pgTable(
     overallStatus: text('overall_status'), // pass | warn | fail
     score: integer('score'),
     checks: jsonb('checks').$type<string[]>().notNull(),
+    // SHA-256 of the creator's anonymous browser secret. Nullable: audits from before ownership existed.
+    ownerHash: text('owner_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     startedAt: timestamp('started_at', { withTimezone: true }),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     durationMs: integer('duration_ms'),
     error: text('error'),
   },
-  (t) => [index('audits_created_at_idx').on(t.createdAt), index('audits_url_idx').on(t.url)],
+  (t) => [
+    index('audits_created_at_idx').on(t.createdAt),
+    index('audits_url_idx').on(t.url),
+    index('audits_owner_created_idx').on(t.ownerHash, t.createdAt),
+  ],
 );
 
 export const auditChecks = pgTable(

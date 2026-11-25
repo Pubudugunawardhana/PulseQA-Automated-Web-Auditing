@@ -2,6 +2,7 @@ import type { AuditDetailDTO, AuditListDTO, CreateAuditRequest, CreateAuditRespo
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
+    credentials: 'include', // anonymous owner cookie (history is per browser)
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });

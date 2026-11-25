@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray, lt } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, isNull, lt } from 'drizzle-orm';
 import { ACTIVE_STATUSES, type AuditDetailDTO, type AuditDTO, type CheckId, type CheckResult } from '@pulseqa/shared';
 import { db } from '../db/client.js';
 import { auditArtifacts, auditChecks, audits, type AuditRow } from '../db/schema.js';
@@ -20,17 +20,17 @@ export function toAuditDTO(row: AuditRow): AuditDTO {
   };
 }
 
-export async function createAudit(url: string, checks: CheckId[]): Promise<AuditDTO> {
-  const [row] = await db.insert(audits).values({ url, checks }).returning();
+export async function createAudit(url: string, checks: CheckId[], ownerHash: string): Promise<AuditDTO> {
+  const [row] = await db.insert(audits).values({ url, checks, ownerHash }).returning();
   return toAuditDTO(row);
 }
 
-/** An audit of the same URL with the same checks that is still queued/running, if any. */
-export async function findActiveDuplicate(url: string, checks: CheckId[]): Promise<AuditDTO | null> {
+/** The same owner's audit of the same URL with the same checks that is still queued/running, if any. */
+export async function findActiveDuplicate(url: string, checks: CheckId[], ownerHash: string): Promise<AuditDTO | null> {
   const rows = await db
     .select()
     .from(audits)
-    .where(and(eq(audits.url, url), inArray(audits.status, ACTIVE_STATUSES)))
+    .where(and(eq(audits.ownerHash, ownerHash), eq(audits.url, url), inArray(audits.status, ACTIVE_STATUSES)))
     .orderBy(desc(audits.createdAt))
     .limit(5);
   const key = [...checks].sort().join(',');
@@ -38,9 +38,10 @@ export async function findActiveDuplicate(url: string, checks: CheckId[]): Promi
   return match ? toAuditDTO(match) : null;
 }
 
-/** Paginated history; `q` filters by URL substring (case-insensitive). */
-export async function listAudits(page: number, limit: number, q?: string) {
-  const where = q ? ilike(audits.url, `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`) : undefined;
+/** One owner's paginated history; `q` filters by URL substring (case-insensitive). */
+export async function listAudits(ownerHash: string, page: number, limit: number, q?: string) {
+  const byOwner = eq(audits.ownerHash, ownerHash);
+  const where = q ? and(byOwner, ilike(audits.url, `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`)) : byOwner;
   const [rows, [{ total }]] = await Promise.all([
     db.select().from(audits).where(where).orderBy(desc(audits.createdAt)).limit(limit).offset((page - 1) * limit),
     db.select({ total: count() }).from(audits).where(where),
@@ -73,14 +74,27 @@ export async function getAuditDetail(id: string): Promise<AuditDetailDTO | null>
   return row ? detailFromRow(row) : null;
 }
 
-/** The most recent COMPLETED audit of the same URL created before `id` (for run-to-run comparison). */
+/** Owner hash of an audit (null = legacy/unowned), or undefined if the audit doesn't exist. */
+export async function getAuditOwner(id: string): Promise<string | null | undefined> {
+  const [row] = await db.select({ ownerHash: audits.ownerHash }).from(audits).where(eq(audits.id, id));
+  return row ? row.ownerHash : undefined;
+}
+
+/** The same owner's most recent COMPLETED audit of the same URL before `id` (for run-to-run comparison). */
 export async function getPreviousAudit(id: string): Promise<AuditDetailDTO | null> {
   const [current] = await db.select().from(audits).where(eq(audits.id, id));
   if (!current) return null;
   const [prev] = await db
     .select()
     .from(audits)
-    .where(and(eq(audits.url, current.url), eq(audits.status, 'completed'), lt(audits.createdAt, current.createdAt)))
+    .where(
+      and(
+        eq(audits.url, current.url),
+        current.ownerHash ? eq(audits.ownerHash, current.ownerHash) : isNull(audits.ownerHash),
+        eq(audits.status, 'completed'),
+        lt(audits.createdAt, current.createdAt),
+      ),
+    )
     .orderBy(desc(audits.createdAt))
     .limit(1);
   return prev ? detailFromRow(prev) : null;
