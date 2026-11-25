@@ -1,55 +1,100 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import 'tailwindcss';
 
-@theme {
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Semantic color tokens. Components use bg-panel / text-muted / text-ok … and adapt to the theme.
+   The .terminal block re-maps the same tokens to the green-on-black terminal palette. */
+:root {
+  --bg: #f5f7fa;
+  --panel: #ffffff;
+  --raised: #f0f3f7;
+  --line: #e2e7ee;
+  --fg: #0f172a;
+  --muted: #5b6475;
+  --faint: #98a2b3;
+  --ok: #15803d;
+  --warn: #b45309;
+  --bad: #dc2626;
+  --info: #2563eb;
+  --accent: #7c3aed;
+  --brand: #10b981;
+  --brand-strong: #059669;
+}
+
+:root.dark {
+  --bg: #0b0f14;
+  --panel: #111823;
+  --raised: #172131;
+  --line: #233044;
+  --fg: #e6edf6;
+  --muted: #94a3b8;
+  --faint: #5d6b80;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --info: #60a5fa;
+  --accent: #a78bfa;
+  --brand: #34d399;
+  --brand-strong: #10b981;
+}
+
+/* Terminal panel: always dark, phosphor colors */
+.terminal {
+  --bg: #0a0e0b;
+  --panel: #0f1511;
+  --raised: #141c17;
+  --line: #1f2a23;
+  --fg: #c8d3c9;
+  --muted: #6b7a6f;
+  --faint: #3c4a40;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --info: #67e8f9;
+  --accent: #c4b5fd;
+  color: var(--fg);
+  background: var(--bg);
+  font-family: var(--font-mono);
+}
+
+@theme inline {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
-  --font-sans: var(--font-mono);
 
-  /* terminal palette */
-  --color-term-bg: #0a0e0b;
-  --color-term-panel: #0f1511;
-  --color-term-raised: #141c17;
-  --color-term-line: #1f2a23;
-  --color-term-fg: #c8d3c9;
-  --color-term-dim: #6b7a6f;
-  --color-term-faint: #3c4a40;
-  --color-term-green: #4ade80;
-  --color-term-amber: #fbbf24;
-  --color-term-red: #f87171;
-  --color-term-cyan: #67e8f9;
-  --color-term-violet: #c4b5fd;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-info: var(--info);
+  --color-accent: var(--accent);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
 }
 
-html { color-scheme: dark; }
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
 body {
-  @apply bg-term-bg font-mono text-[13px] leading-relaxed text-term-fg antialiased;
-  background-image: radial-gradient(ellipse at top, #0f1a13 0%, transparent 60%);
+  @apply bg-bg font-sans text-[14px] leading-relaxed text-fg antialiased;
 }
 
-::selection { background: #4ade8040; }
-
-/* subtle CRT scanlines over the terminal window */
-.scanlines { position: relative; }
-.scanlines::after {
-  content: '';
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, 0.12) 2px 3px);
-  border-radius: inherit;
-}
+::selection { background: color-mix(in srgb, var(--brand) 30%, transparent); }
 
 @keyframes blink { 50% { opacity: 0; } }
 .caret { animation: blink 1s steps(1) infinite; }
 
 @keyframes line-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
-.line-in { animation: line-in 0.18s ease-out; }
-
-.glow-green { text-shadow: 0 0 8px #4ade8055; }
+.line-in { animation: line-in 0.2s ease-out; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1f2a23; border-radius: 5px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
 
 @media (prefers-reduced-motion: reduce) {
   .caret, .line-in { animation: none; }
