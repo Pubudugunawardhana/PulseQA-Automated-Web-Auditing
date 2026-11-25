@@ -1,4 +1,4 @@
-import { chromium, type Browser, type BrowserContext, type BrowserContextOptions, type Page } from 'playwright';
+import { chromium, type Browser, type BrowserContext, type BrowserContextOptions, type CDPSession, type Page } from 'playwright';
 import { resolvesToPrivate } from '../lib/urlGuard.js';
 
 let browserPromise: Promise<Browser> | null = null;
@@ -98,7 +98,7 @@ export const MOBILE_THROTTLING = {
   cpuRate: 4,
 };
 
-export async function applyMobileThrottling(context: BrowserContext, page: Page): Promise<void> {
+export async function applyMobileThrottling(context: BrowserContext, page: Page): Promise<CDPSession> {
   const cdp = await context.newCDPSession(page);
   await cdp.send('Network.enable');
   await cdp.send('Network.emulateNetworkConditions', {
@@ -108,4 +108,5 @@ export async function applyMobileThrottling(context: BrowserContext, page: Page)
     uploadThroughput: MOBILE_THROTTLING.uploadThroughput,
   });
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: MOBILE_THROTTLING.cpuRate });
+  return cdp;
 }
