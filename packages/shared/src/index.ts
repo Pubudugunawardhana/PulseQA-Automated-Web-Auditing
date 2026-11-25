@@ -94,6 +94,7 @@ export type CreateAuditResponse = AuditDTO & { deduplicated?: boolean };
 
 export * from './details';
 export * from './issues';
+export * from './remediation';
 
 export type AuditEvent =
   | { type: 'snapshot'; audit: AuditDetailDTO }
