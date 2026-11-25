@@ -15,7 +15,10 @@ const repo = vi.hoisted(() => ({
   getAuditDetail: vi.fn(),
   getAuditOwner: vi.fn(),
   getPreviousAudit: vi.fn(),
+  getUrlHistory: vi.fn(),
   deleteAudit: vi.fn(),
+  findOverflowAudits: vi.fn(async (): Promise<string[]> => []),
+  deleteAudits: vi.fn(async (ids: string[]) => ids),
   failInterruptedAudits: vi.fn(),
 }));
 const runner = vi.hoisted(() => ({ scheduleAudit: vi.fn() }));
@@ -103,6 +106,16 @@ describe('anonymous ownership', () => {
     expect(repo.getPreviousAudit).not.toHaveBeenCalled();
     await request(app).get(`/api/audits/${ID}/previous`).set('Cookie', asAlice).expect(200);
   });
+
+  it('only gives score history (trends) to the owner', async () => {
+    repo.getAuditOwner.mockResolvedValue(ALICE_HASH);
+    repo.getUrlHistory.mockResolvedValue([{ id: ID, createdAt: new Date().toISOString(), score: 80, overallStatus: 'pass', checks: [] }]);
+    expect((await request(app).get(`/api/audits/${ID}/history`).set('Cookie', asBob).expect(200)).body).toEqual([]);
+    expect(repo.getUrlHistory).not.toHaveBeenCalled();
+    const res = await request(app).get(`/api/audits/${ID}/history`).set('Cookie', asAlice).expect(200);
+    expect(res.body).toHaveLength(1);
+    expect(repo.getUrlHistory).toHaveBeenCalledWith(ID);
+  });
 });
 
 describe('POST /api/audits', () => {
@@ -134,6 +147,26 @@ describe('POST /api/audits', () => {
     expect(res.body).toMatchObject({ id: ID, deduplicated: true });
     expect(repo.findActiveDuplicate).toHaveBeenCalledWith('https://example.com/', ['smoke'], ALICE_HASH);
     expect(repo.createAudit).not.toHaveBeenCalled();
+  });
+});
+
+describe('history limit', () => {
+  it('keeps only the newest audits per browser and never prunes running ones', async () => {
+    const OLD = '11111111-1111-4111-8111-111111111111';
+    const RUNNING = '22222222-2222-4222-8222-222222222222';
+    repo.findActiveDuplicate.mockResolvedValue(null);
+    repo.createAudit.mockResolvedValue(audit());
+    repo.findOverflowAudits.mockResolvedValueOnce([OLD, RUNNING]);
+    queue.isTracked.mockImplementation((id: string) => id === RUNNING);
+    await request(app).post('/api/audits').set('Cookie', asBob).send({ url: 'example.com' }).expect(202);
+    await vi.waitFor(() => expect(repo.deleteAudits).toHaveBeenCalledWith([OLD]));
+    expect(repo.findOverflowAudits).toHaveBeenCalledWith(hashOwner(BOB), 10);
+    queue.isTracked.mockReset();
+  });
+
+  it('tells the UI how many audits are kept', async () => {
+    repo.listAudits.mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
+    expect((await request(app).get('/api/audits').set('Cookie', asAlice).expect(200)).body.historyLimit).toBe(10);
   });
 });
 

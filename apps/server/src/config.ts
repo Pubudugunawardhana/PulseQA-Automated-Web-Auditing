@@ -10,6 +10,8 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required (Neon pooled connection string)'),
   PORT: z.coerce.number().int().positive().default(4000),
   MAX_CONCURRENT_AUDITS: z.coerce.number().int().min(1).max(10).default(2),
+  /** Audits kept per browser; older ones (and their screenshots) are removed automatically. */
+  HISTORY_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
   ALLOW_PRIVATE_HOSTS: bool.default(true),
   ARTIFACTS_DIR: z.string().default('./artifacts'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),

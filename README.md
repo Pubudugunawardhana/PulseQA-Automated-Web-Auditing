@@ -14,7 +14,7 @@ Paste any URL → get a full quality report in seconds.<br/>
 ![Playwright](https://img.shields.io/badge/Playwright-Chromium-2EAD33?logo=playwright&logoColor=white)
 ![axe-core](https://img.shields.io/badge/axe--core-WCAG%202.1%20AA-663399)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-28%20passing-success)
+![Tests](https://img.shields.io/badge/tests-31%20passing-success)
 
 <img src="docs/screenshots/results-dark.png" alt="PulseQA audit results dashboard" width="900" />
 
@@ -56,10 +56,12 @@ Every web app needs the same baseline quality checks before release — is it up
 | ⚡ **Live progress** | Server-Sent Events stream each check as it finishes, with a terminal-style live log |
 | 📱 **Desktop + mobile** | 3 viewports (1920 · 768 · 375 px) with screenshots; throttled mobile performance profile (4G, 4× CPU) |
 | 🎯 **Low-noise results** | First-party vs third-party error split, bot-protection detection, HEAD→GET fallback, clipped-overflow detection |
-| 🔁 **Regression tracking** | Every run is compared with the previous run of the same URL — score delta, new issues, fixed issues |
+| 📊 **Overview dashboard** | Health-score gauge, issues by type (errors / warnings / notices), per-check polar chart, KPI trend sparklines and a ranked *Top issues* list |
+| 🛠️ **How-to-fix tips** | Every issue comes with remediation guidance — what to change, where it was found, a copy-paste example (e.g. a ready CSP header) and a docs link — in the dashboard and the exported report |
+| 🔁 **Regression tracking** | Pick any earlier run of the same URL in *Compare to* — score and issue deltas, **NEW** issue badges, fixed issues |
 | 📄 **Export & share** | Self-contained HTML report (screenshots embedded), raw JSON, or a read-only share link |
 | ⛔ **Cancel & time limits** | Cancel any running audit; hard 4-minute ceiling per audit; per-check timeouts |
-| 🔒 **Private by default** | No login needed — each browser only sees its own history (anonymous, hashed owner ID) |
+| 🔒 **Private by default** | No login needed — each browser only sees its own latest 10 audits (anonymous, hashed owner ID; older runs auto-pruned) |
 | 🛡️ **Safe to host publicly** | SSRF guard on every navigation, redirect and link probe; rate limiting; duplicate-run protection |
 | 🌗 **Light / dark UI** | Clean dashboard with a live terminal panel, mobile-friendly |
 
@@ -70,6 +72,10 @@ Every web app needs the same baseline quality checks before release — is it up
 | Start an audit | Live progress |
 |---|---|
 | <img src="docs/screenshots/new-audit.png" alt="New audit page" /> | <img src="docs/screenshots/live-audit.png" alt="Audit running with live log" /> |
+
+### Overview dashboard
+
+<img src="docs/screenshots/overview.png" alt="Overview: health score gauge, issues by type, check quality chart, KPI trends and top issues" />
 
 | Detailed report (Performance: desktop vs throttled mobile) | Private history |
 |---|---|
@@ -89,7 +95,8 @@ flowchart LR
     D -->|SSE events| E[Checks finish one by one<br/>+ terminal live log]
     E --> F[📊 Score 0–100<br/>Pass / Warn / Fail]
     F --> G[🔎 Open any check's report]
-    F --> H[🔁 Compare with previous run]
+    F --> O[📊 Overview: gauge, issues by type,<br/>trends, top issues]
+    F --> H[🔁 Compare with any earlier run]
     F --> I[📄 Export HTML / JSON]
     F --> J[🔗 Share read-only link]
     F --> K[🗂 Saved to your history]
@@ -168,6 +175,10 @@ flowchart TD
 | 🚀 **Performance** | TTFB, FCP, LCP, CLS, load time, request count, transfer size, slowest resources — on desktop **and** a throttled mobile profile (1.6 Mbps, 150 ms RTT, 4× CPU, like Lighthouse). | A desktop metric above the "poor" threshold |
 | 🛡️ **Security Headers** | HTTPS, HTTP→HTTPS redirect, CSP, X-Frame-Options / `frame-ancestors`, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, mixed content, cookie flags, server info leaks. | No HTTPS or mixed content |
 
+**Issue severity (Overview):** every finding is grouped into an *issue* and ranked — **errors** (e.g. broken images, first-party exceptions, critical/serious a11y, poor Core Web Vitals, no HTTPS), **warnings** (moderate a11y, missing security headers, broken external links, console errors) and **notices** (minor a11y, SEO notes, bot-protected links, third-party noise).
+
+**Remediation:** each issue carries a short fix (`packages/shared/src/remediation.ts`) — e.g. *Missing Content-Security-Policy* → a starter `Content-Security-Policy: default-src 'self'; …` header plus where to set it (helmet, Nginx, Vercel/Netlify, Cloudflare); accessibility issues reuse axe-core's per-element advice and the offending HTML.
+
 **Scoring:** each check has a weight (smoke 3, security 1, others 2). Pass = 100 %, Warn = 50 %, Fail/Error = 0 %, Skipped is excluded. The overall result is the worst check status.
 
 ---
@@ -224,9 +235,9 @@ pulseqa/
 │   │   └── test/                  # unit, API and browser integration tests + fixture pages
 │   └── web/src/
 │       ├── pages/                 # NewAudit, AuditDetail, History
-│       ├── components/            # check reports, UI kit
+│       ├── components/            # Overview dashboard, SVG charts, check reports, UI kit
 │       └── lib/                   # API client, SSE hook, compare, export
-└── packages/shared/               # types shared by server and web
+└── packages/shared/               # types, scoring + issue classifier shared by server and web
 ```
 
 ---
@@ -240,7 +251,7 @@ pulseqa/
 | See an audit in **History** | Only the browser that created it |
 | Open an audit **by link** | Anyone with the link (read-only view, shown as "Shared report") |
 | **Cancel / delete** an audit | Only its owner (others get `403`) |
-| See the **previous-run comparison** | Only the owner |
+| See **trends & run comparison** | Only the owner |
 
 **Hardening for public hosting**
 
@@ -303,6 +314,7 @@ Set in `.env` at the project root (see [`.env.example`](.env.example)).
 | `DATABASE_URL` | — | PostgreSQL connection string (**required**) |
 | `PORT` | `4000` | API port |
 | `MAX_CONCURRENT_AUDITS` | `2` | Audits that run at the same time (others wait in the queue) |
+| `HISTORY_LIMIT` | `10` | Audits kept per browser — when a new one starts, the oldest finished ones (and their screenshots) are deleted |
 | `ALLOW_PRIVATE_HOSTS` | `true` | Allow auditing localhost / private networks. **Set `false` when hosting publicly.** |
 | `ARTIFACTS_DIR` | `./artifacts` | Where screenshots are stored |
 | `CORS_ORIGIN` | `http://localhost:5173` | Allowed web origin(s), comma-separated |
@@ -319,6 +331,7 @@ Set in `.env` at the project root (see [`.env.example`](.env.example)).
 | `GET` | `/api/audits?page=&limit=&q=` | Your history (filter by URL with `q`) |
 | `GET` | `/api/audits/:id` | Audit with all results and screenshots (`isOwner` flag) |
 | `GET` | `/api/audits/:id/events` | Live progress stream (SSE) |
+| `GET` | `/api/audits/:id/history` | Completed runs of the same URL up to this one — scores + summaries for trends (owner only, `[]` for others) |
 | `GET` | `/api/audits/:id/previous` | Previous completed run of the same URL (owner only) |
 | `POST` | `/api/audits/:id/cancel` | Cancel a queued/running audit (owner only) |
 | `DELETE` | `/api/audits/:id` | Delete an audit and its screenshots (owner only) |
@@ -334,11 +347,11 @@ Set in `.env` at the project root (see [`.env.example`](.env.example)).
 npm test
 ```
 
-**28 tests** across three levels:
+**31 tests** across three levels:
 
 - **Unit** – URL validation & SSRF IP ranges, first/third-party site detection, scoring, performance thresholds.
-- **API** – validation, ownership & privacy rules (403s, scoped history), de-duplication, cancel/delete rules, rate limiting (Supertest, DB mocked).
-- **Browser integration** – the real engine runs against local **fixture websites**: a deliberately broken page (broken link & image, JS exception, failed API call, mobile overflow, missing alt text, low contrast, no HTTPS) must be caught; a clean page must pass; plus third-party noise, unreachable hosts, SSRF blocking, cancellation and the time limit.
+- **API** – validation, ownership & privacy rules (403s, scoped history, owner-only trends), de-duplication, cancel/delete rules, rate limiting (Supertest, DB mocked).
+- **Browser integration** – the real engine runs against local **fixture websites**: a deliberately broken page (broken link & image, JS exception, failed API call, mobile overflow, missing alt text, low contrast, no HTTPS) must be caught and ranked as errors in the Overview; a clean page must pass with zero errors; plus third-party noise, unreachable hosts, SSRF blocking, cancellation and the time limit.
 
 ---
 

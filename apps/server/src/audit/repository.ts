@@ -170,6 +170,23 @@ export async function finishAudit(
   return toAuditDTO(row);
 }
 
+/** Ids of this owner's audits beyond the newest `keep` (finished ones only — running/queued are never pruned). */
+export async function findOverflowAudits(ownerHash: string, keep: number): Promise<string[]> {
+  const rows = await db
+    .select({ id: audits.id, status: audits.status })
+    .from(audits)
+    .where(eq(audits.ownerHash, ownerHash))
+    .orderBy(desc(audits.createdAt))
+    .offset(keep);
+  return rows.filter((r) => !(ACTIVE_STATUSES as readonly string[]).includes(r.status)).map((r) => r.id);
+}
+
+export async function deleteAudits(ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await db.delete(audits).where(inArray(audits.id, ids)).returning({ id: audits.id });
+  return rows.map((r) => r.id);
+}
+
 export async function deleteAudit(id: string): Promise<boolean> {
   const rows = await db.delete(audits).where(eq(audits.id, id)).returning({ id: audits.id });
   return rows.length > 0;
