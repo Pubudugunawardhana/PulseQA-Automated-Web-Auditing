@@ -1,4 +1,4 @@
-import type { AuditDetailDTO, AuditListDTO, CreateAuditRequest, CreateAuditResponse } from '@pulseqa/shared';
+import type { AuditDetailDTO, AuditHistoryPoint, AuditListDTO, CreateAuditRequest, CreateAuditResponse } from '@pulseqa/shared';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -18,8 +18,8 @@ export const api = {
   listAudits: (page = 1, limit = 20, q = '') =>
     request<AuditListDTO>(`/api/audits?page=${page}&limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ''}`),
   getAudit: (id: string) => request<AuditDetailDTO>(`/api/audits/${id}`),
-  /** Previous completed run of the same URL, or null. */
-  getPrevious: (id: string) => request<AuditDetailDTO | null>(`/api/audits/${id}/previous`),
+  /** Completed runs of the same URL up to this one, oldest first (empty for non-owners). */
+  getHistory: (id: string) => request<AuditHistoryPoint[]>(`/api/audits/${id}/history`),
   cancelAudit: (id: string) => request<{ ok: true }>(`/api/audits/${id}/cancel`, { method: 'POST' }),
   deleteAudit: (id: string) => request<void>(`/api/audits/${id}`, { method: 'DELETE' }),
 };

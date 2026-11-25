@@ -46,7 +46,7 @@ export function useAuditEvents(id: string, enabled: boolean) {
           es.close();
           void qc.invalidateQueries({ queryKey: ['audits'] });
           void qc.invalidateQueries({ queryKey: ['health'] }); // status bar queue count
-          void qc.invalidateQueries({ queryKey: ['previous', id] });
+          void qc.invalidateQueries({ queryKey: ['history', id] });
           break;
         case 'audit:failed':
           setRunning(null);

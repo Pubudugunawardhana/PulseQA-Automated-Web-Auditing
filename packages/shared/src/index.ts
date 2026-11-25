@@ -68,6 +68,15 @@ export interface AuditDetailDTO extends AuditDTO {
   isOwner?: boolean;
 }
 
+/** One earlier completed run of the same URL (summaries only), used for trends and "compare to". */
+export interface AuditHistoryPoint {
+  id: string;
+  createdAt: string;
+  score: number | null;
+  overallStatus: AuditDTO['overallStatus'];
+  checks: Pick<CheckResult, 'checkId' | 'status' | 'summary'>[];
+}
+
 export interface AuditListDTO {
   items: AuditDTO[];
   total: number;
@@ -84,6 +93,7 @@ export interface CreateAuditRequest {
 export type CreateAuditResponse = AuditDTO & { deduplicated?: boolean };
 
 export * from './details';
+export * from './issues';
 
 export type AuditEvent =
   | { type: 'snapshot'; audit: AuditDetailDTO }
