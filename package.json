@@ -1,0 +1,21 @@
+{
+  "name": "pulseqa",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "node node_modules/concurrently/dist/bin/index.js -n server,web -c cyan,magenta \"npm run dev -w @pulseqa/server\" \"npm run dev -w @pulseqa/web\"",
+    "build": "npm run build -w @pulseqa/web",
+    "typecheck": "npm run typecheck -w @pulseqa/server && npm run typecheck -w @pulseqa/web",
+    "test": "npm run test -w @pulseqa/server",
+    "db:generate": "npm run db:generate -w @pulseqa/server",
+    "db:migrate": "npm run db:migrate -w @pulseqa/server",
+    "playwright:install": "npm run playwright:install -w @pulseqa/server"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
+}

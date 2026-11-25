@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --font-sans: var(--font-mono);
+
+  /* terminal palette */
+  --color-term-bg: #0a0e0b;
+  --color-term-panel: #0f1511;
+  --color-term-raised: #141c17;
+  --color-term-line: #1f2a23;
+  --color-term-fg: #c8d3c9;
+  --color-term-dim: #6b7a6f;
+  --color-term-faint: #3c4a40;
+  --color-term-green: #4ade80;
+  --color-term-amber: #fbbf24;
+  --color-term-red: #f87171;
+  --color-term-cyan: #67e8f9;
+  --color-term-violet: #c4b5fd;
+}
+
+html { color-scheme: dark; }
+body {
+  @apply bg-term-bg font-mono text-[13px] leading-relaxed text-term-fg antialiased;
+  background-image: radial-gradient(ellipse at top, #0f1a13 0%, transparent 60%);
+}
+
+::selection { background: #4ade8040; }
+
+/* subtle CRT scanlines over the terminal window */
+.scanlines { position: relative; }
+.scanlines::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, 0.12) 2px 3px);
+  border-radius: inherit;
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+.caret { animation: blink 1s steps(1) infinite; }
+
+@keyframes line-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+.line-in { animation: line-in 0.18s ease-out; }
+
+.glow-green { text-shadow: 0 0 8px #4ade8055; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1f2a23; border-radius: 5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .caret, .line-in { animation: none; }
+}

@@ -1,0 +1,26 @@
+import type { AuditDetailDTO, AuditListDTO, CreateAuditRequest, CreateAuditResponse } from '@pulseqa/shared';
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Request failed (${res.status})`);
+  }
+  return res.status === 204 ? (null as T) : res.json();
+}
+
+export const api = {
+  createAudit: (body: CreateAuditRequest) => request<CreateAuditResponse>('/api/audits', { method: 'POST', body: JSON.stringify(body) }),
+  listAudits: (page = 1, limit = 20, q = '') =>
+    request<AuditListDTO>(`/api/audits?page=${page}&limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ''}`),
+  getAudit: (id: string) => request<AuditDetailDTO>(`/api/audits/${id}`),
+  /** Previous completed run of the same URL, or null. */
+  getPrevious: (id: string) => request<AuditDetailDTO | null>(`/api/audits/${id}/previous`),
+  cancelAudit: (id: string) => request<{ ok: true }>(`/api/audits/${id}/cancel`, { method: 'POST' }),
+  deleteAudit: (id: string) => request<void>(`/api/audits/${id}`, { method: 'DELETE' }),
+};
+
+export const auditKey = (id: string) => ['audit', id] as const;

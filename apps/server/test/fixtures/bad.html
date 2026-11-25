@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Bad fixture</title>
+    <style>
+      .wide { width: 1200px; background: #eee; }
+      .low-contrast { color: #bbb; background: #fff; }
+    </style>
+  </head>
+  <body>
+    <h1>Bad page</h1>
+    <p class="low-contrast">Low contrast text that fails WCAG.</p>
+    <div class="wide">This block overflows on mobile.</div>
+    <a href="/does-not-exist">Broken internal link</a>
+    <a href="/good.html">Working link</a>
+    <img src="/missing-image.png" />
+    <button></button>
+    <script>
+      console.error('fixture console error');
+      fetch('/api/broken').catch(() => {});
+      setTimeout(() => { throw new Error('fixture uncaught exception'); }, 0);
+    </script>
+  </body>
+</html>
