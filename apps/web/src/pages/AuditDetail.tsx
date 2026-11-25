@@ -259,7 +259,7 @@ export function AuditDetail() {
   const navigate = useNavigate();
   const { data: audit, isLoading, error } = useQuery({ queryKey: auditKey(id), queryFn: () => api.getAudit(id) });
   const live = !!audit && (audit.status === 'queued' || audit.status === 'running');
-  const { running } = useAuditEvents(id, live);
+  const { running, runningSince } = useAuditEvents(id, live);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedCheck, setSelectedCheck] = useState<CheckId | null>(null);
   const [logOpen, setLogOpen] = useState<boolean | null>(null); // null = automatic (open while running)
@@ -326,12 +326,16 @@ export function AuditDetail() {
   const start = audit.startedAt ? new Date(audit.startedAt).getTime() : null;
   let elapsed = 0;
   const times = new Map<CheckId, string>();
+  let prevEnd: number | null = null;
   for (const c of selected) {
     const r = results.get(c);
     if (r?.startedAt) times.set(c, clock(new Date(r.startedAt)));
+    else if (!r && c === running && runningSince) times.set(c, clock(runningSince)); // live: when the event arrived
+    else if (!r && prevEnd !== null) times.set(c, clock(new Date(prevEnd))); // e.g. after a page refresh
     else if (start !== null) times.set(c, clock(new Date(start + elapsed)));
     if (!r) break;
     elapsed += r.durationMs;
+    prevEnd = r.startedAt ? new Date(r.startedAt).getTime() + r.durationMs : null;
   }
 
   const counts = { pass: 0, warn: 0, fail: 0 };

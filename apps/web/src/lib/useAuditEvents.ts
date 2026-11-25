@@ -10,6 +10,7 @@ import { auditKey } from './api';
 export function useAuditEvents(id: string, enabled: boolean) {
   const qc = useQueryClient();
   const [running, setRunning] = useState<CheckId | null>(null);
+  const [runningSince, setRunningSince] = useState<Date | null>(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export function useAuditEvents(id: string, enabled: boolean) {
           break;
         case 'check:started':
           setRunning(e.checkId);
+          setRunningSince(new Date());
           break;
         case 'check:completed':
           setRunning(null);
@@ -59,5 +61,5 @@ export function useAuditEvents(id: string, enabled: boolean) {
     return () => es.close();
   }, [id, enabled, qc]);
 
-  return { running, connected };
+  return { running, runningSince, connected };
 }

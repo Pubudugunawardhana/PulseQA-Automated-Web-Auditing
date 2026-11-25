@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node node_modules/concurrently/dist/bin/index.js -n server,web -c cyan,magenta \"npm run dev -w @pulseqa/server\" \"npm run dev -w @pulseqa/web\"",
     "build": "npm run build -w @pulseqa/web",
+    "start": "npm run start -w @pulseqa/server",
     "typecheck": "npm run typecheck -w @pulseqa/server && npm run typecheck -w @pulseqa/web",
     "test": "npm run test -w @pulseqa/server",
     "db:generate": "npm run db:generate -w @pulseqa/server",
