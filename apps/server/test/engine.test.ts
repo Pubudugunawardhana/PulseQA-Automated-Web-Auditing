@@ -4,6 +4,8 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   CHECK_IDS,
+  classifyIssues,
+  countBySeverity,
   type AccessibilityDetails,
   type CheckResult,
   type ConsoleNetworkSummary,
@@ -81,6 +83,21 @@ describe('audit engine (integration)', () => {
 
     expect(r.security.status).toBe('fail'); // not https
     expect(r.security.summary.https).toBe(false);
+
+    // Overview: the same results become a severity-ranked issue list
+    const issues = classifyIssues(results);
+    const titles = issues.filter((i) => i.severity === 'error').map((i) => i.title);
+    expect(titles).toEqual(expect.arrayContaining(['Broken image', 'Uncaught JavaScript exception', 'Failed API request', 'Site is not served over HTTPS']));
+    expect(issues[0].severity).toBe('error');
+    expect(countBySeverity(issues).error).toBeGreaterThanOrEqual(6);
+
+    // Remediation: every issue says how to fix it; specific ones come with a copy-paste example / docs
+    for (const i of issues) expect(i.fix.tip.length, i.title).toBeGreaterThan(20);
+    const csp = issues.find((i) => i.title.includes('Content-Security-Policy'));
+    expect(csp?.fix.snippet).toMatch(/^Content-Security-Policy: /);
+    const alt = issues.find((i) => i.checkId === 'accessibility' && i.fix.docs?.includes('image-alt'));
+    expect(alt?.example).toMatch(/<img/);
+    expect(issues.find((i) => i.title === 'Broken image')?.example).toMatch(/^http/);
   }, 180_000);
 
   it('passes the good fixture on links, console, responsive and accessibility', async () => {
@@ -97,6 +114,7 @@ describe('audit engine (integration)', () => {
     expect(r.responsive.status).toBe('pass');
     expect(r.accessibility.status).toBe('pass');
     expect(r.accessibility.screenshots).toHaveLength(0); // nothing to highlight
+    expect(countBySeverity(classifyIssues(results)).error).toBe(0);
   }, 180_000);
 
   it('treats errors from another site as third-party (warn, not fail)', async () => {
