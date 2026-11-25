@@ -18,6 +18,7 @@ import {
 import { EXECUTION_ORDER } from '../lib/checks';
 import { cn, formatDate, formatMs } from '../lib/format';
 import { Gauge, PolarChart, Sparkline, StackedBar } from './charts';
+import { FixPanel } from './FixPanel';
 import { Card, scoreTone } from './ui';
 
 const SEVERITY: Record<IssueSeverity, { label: string; dot: string; bar: string }> = {
@@ -106,6 +107,7 @@ export function Overview({
   onSelectCheck: (id: CheckId) => void;
 }) {
   const [showAllIssues, setShowAllIssues] = useState(false);
+  const [openIssue, setOpenIssue] = useState<string | null>(null);
   const issues = useMemo(() => classifyIssues(audit.results), [audit.results]);
   const counts = countBySeverity(issues);
   const before = useMemo(() => (compare ? countBySeverity(classifyIssues(compare.results)) : null), [compare]);
@@ -263,16 +265,20 @@ export function Overview({
         >
           Top issues
         </CardTitle>
+        {issues.length > 0 && <p className="-mt-2 mb-3 text-xs text-muted">Click an issue to see how to fix it.</p>}
         {issues.length === 0 ? (
           <p className="text-sm text-muted">No issues found on this page.</p>
         ) : (
           <ul className="-mx-2 divide-y divide-line">
             {shownIssues.map((i: Issue) => {
               const isNew = previousKeys ? i.keys.some((k) => !previousKeys.has(k)) : false;
+              const key = `${i.checkId}:${i.title}`;
+              const open = openIssue === key;
               return (
-                <li key={`${i.checkId}:${i.title}`}>
+                <li key={key}>
                   <button
-                    onClick={() => onSelectCheck(i.checkId)}
+                    onClick={() => setOpenIssue(open ? null : key)}
+                    aria-expanded={open}
                     className="group flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition hover:bg-raised/60"
                   >
                     <span className={cn('size-2 shrink-0 rounded-full', SEVERITY[i.severity].dot)} title={SEVERITY[i.severity].label} />
@@ -283,8 +289,9 @@ export function Overview({
                     {isNew && <span className="rounded bg-bad/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-bad">New</span>}
                     <span className="hidden h-px w-16 bg-line sm:block lg:w-32" aria-hidden />
                     <span className="w-8 text-right text-sm font-semibold tabular-nums text-info">{i.count}</span>
-                    <ChevronRight className="size-4 text-faint transition group-hover:translate-x-0.5 group-hover:text-fg" />
+                    <ChevronRight className={cn('size-4 text-faint transition group-hover:text-fg', open && 'rotate-90')} />
                   </button>
+                  {open && <FixPanel issue={i} onOpenReport={() => onSelectCheck(i.checkId)} />}
                 </li>
               );
             })}

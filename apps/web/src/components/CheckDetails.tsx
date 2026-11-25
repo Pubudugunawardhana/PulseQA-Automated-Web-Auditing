@@ -1,5 +1,5 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
-import type { CheckId, CheckResult, ConsoleEntry, LinkProbe, NetworkEntry, Party, PerfMetricKey, Rating, Screenshot } from '@pulseqa/shared';
+import type { A11yViolation, CheckId, CheckResult, ConsoleEntry, LinkProbe, NetworkEntry, Party, PerfMetricKey, Rating, Screenshot } from '@pulseqa/shared';
 import { shape } from '../lib/checks';
 import { cn, formatMs } from '../lib/format';
 import { Empty, Section, Stat, StatGrid, StatusBadge, Table, toneCls } from './ui';
@@ -256,10 +256,41 @@ const IMPACT_CLS: Record<string, string> = {
   minor: 'text-muted',
 };
 
+function ViolationList({ violations }: { violations: A11yViolation[] }) {
+  return (
+    <div className="space-y-1">
+      {violations.map((v) => (
+        <details key={v.id} className="group">
+          <summary className="flex cursor-pointer list-none items-baseline gap-2 px-1 hover:bg-raised">
+            <span className="text-faint group-open:hidden">▸</span>
+            <span className="hidden text-faint group-open:inline">▾</span>
+            <span className={cn('w-20 shrink-0 px-1 text-center text-[11px] font-bold uppercase', IMPACT_CLS[v.impact])}>{v.impact}</span>
+            <span className="flex-1">{v.help}</span>
+            <span className="shrink-0 text-muted">×{v.nodeCount}</span>
+          </summary>
+          <div className="ml-6 space-y-1.5 border-l border-line py-2 pl-3">
+            <p className="text-muted">{v.description}</p>
+            <a href={v.helpUrl} target="_blank" rel="noreferrer" className="text-info hover:underline">
+              → how to fix: {v.id}
+            </a>
+            {v.nodes.map((n, i) => (
+              <div key={i} className="text-[12px]">
+                <div className="text-accent">{n.target}</div>
+                <div className="break-all text-muted">{n.html}</div>
+              </div>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
 function Accessibility({ r }: { r: CheckResult }) {
   const { summary: s, details: d } = shape(r, 'accessibility');
   return (
     <div className="space-y-3">
+      <h4 className="text-sm font-semibold text-fg">Desktop viewport (1920×1080)</h4>
       <StatGrid>
         <Stat label="critical" value={s.critical} tone={s.critical ? 'fail' : 'pass'} />
         <Stat label="serious" value={s.serious} tone={s.serious ? 'fail' : 'pass'} />
@@ -274,35 +305,33 @@ function Accessibility({ r }: { r: CheckResult }) {
           <span style={{ color: '#ff6b3d' }}>serious</span> · <span style={{ color: '#f5b400' }}>moderate</span> · <span style={{ color: '#4aa8ff' }}>minor</span>
         </p>
       ) : null}
-      {d.violations.length ? (
-        <div className="space-y-1">
-          {d.violations.map((v) => (
-            <details key={v.id} className="group">
-              <summary className="flex cursor-pointer list-none items-baseline gap-2 px-1 hover:bg-raised">
-                <span className="text-faint group-open:hidden">▸</span>
-                <span className="hidden text-faint group-open:inline">▾</span>
-                <span className={cn('w-20 shrink-0 px-1 text-center text-[11px] font-bold uppercase', IMPACT_CLS[v.impact])}>{v.impact}</span>
-                <span className="flex-1">{v.help}</span>
-                <span className="shrink-0 text-muted">×{v.nodeCount}</span>
-              </summary>
-              <div className="ml-6 space-y-1.5 border-l border-line py-2 pl-3">
-                <p className="text-muted">{v.description}</p>
-                <a href={v.helpUrl} target="_blank" rel="noreferrer" className="text-info hover:underline">
-                  → how to fix: {v.id}
-                </a>
-                {v.nodes.map((n, i) => (
-                  <div key={i} className="text-[12px]">
-                    <div className="text-accent">{n.target}</div>
-                    <div className="break-all text-muted">{n.html}</div>
-                  </div>
-                ))}
-              </div>
-            </details>
-          ))}
-        </div>
-      ) : (
-        <Empty>no WCAG 2.1 A/AA violations detected by axe-core</Empty>
-      )}
+      {d.violations.length ? <ViolationList violations={d.violations} /> : <Empty>no WCAG 2.1 A/AA violations detected by axe-core on desktop</Empty>}
+
+      <Section title={`mobile viewport${d.mobileViewport ? ` (${d.mobileViewport})` : ''}`}>
+        {s.mobile === undefined ? (
+          <p className="text-sm text-muted">Not measured for this audit (older run).</p>
+        ) : s.mobile === null ? (
+          <p className="text-sm text-warn">Mobile scan failed: {d.mobileError ?? 'unknown error'}</p>
+        ) : (
+          <div className="space-y-2">
+            <StatGrid>
+              <Stat label="critical" value={s.mobile.critical} tone={s.mobile.critical ? 'fail' : 'pass'} />
+              <Stat label="serious" value={s.mobile.serious} tone={s.mobile.serious ? 'fail' : 'pass'} />
+              <Stat label="moderate" value={s.mobile.moderate} tone={s.mobile.moderate ? 'warn' : 'pass'} />
+              <Stat label="minor" value={s.mobile.minor} tone={s.mobile.minor ? 'warn' : 'pass'} />
+              <Stat label="mobile_only" value={d.mobileOnly?.length ?? 0} tone={d.mobileOnly?.length ? 'warn' : 'pass'} />
+            </StatGrid>
+            {d.mobileOnly?.length ? (
+              <>
+                <p className="text-xs text-muted">Problems only mobile users hit (not present on desktop):</p>
+                <ViolationList violations={d.mobileOnly} />
+              </>
+            ) : (
+              <Empty>no extra violations on mobile — same result as desktop</Empty>
+            )}
+          </div>
+        )}
+      </Section>
       <p className="text-xs text-faint">Automated testing finds ~30–40% of accessibility issues — manual review still recommended</p>
     </div>
   );

@@ -77,6 +77,11 @@ export function History() {
             <span className="ml-2 inline-flex items-center gap-1 text-xs text-faint" title="No login needed: audits are tied to this browser. Share an audit's link to show it to others (read-only).">
               <Lock className="size-3" /> Private to this browser
             </span>
+            {data?.historyLimit && (
+              <span className="ml-2 text-xs text-faint" title="When you start a new audit, the oldest one is removed automatically.">
+                · Keeps your latest {data.historyLimit}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
