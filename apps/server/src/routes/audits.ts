@@ -9,10 +9,13 @@ import { subscribe } from '../audit/events.js';
 import {
   createAudit,
   deleteAudit,
+  deleteAudits,
   findActiveDuplicate,
+  findOverflowAudits,
   getAuditDetail,
   getAuditOwner,
   getPreviousAudit,
+  getUrlHistory,
   listAudits,
 } from '../audit/repository.js';
 import { scheduleAudit } from '../audit/runner.js';
@@ -58,14 +61,26 @@ auditsRouter.post('/', createLimiter, async (req, res) => {
   const audit = await createAudit(url, checks, req.ownerHash);
   scheduleAudit(audit.id, url, checks);
   res.status(202).json(audit);
+  void pruneHistory(req.ownerHash);
 });
+
+/** Keep only the newest HISTORY_LIMIT audits per browser; remove older ones and their screenshots. */
+async function pruneHistory(ownerHash: string) {
+  try {
+    const ids = (await findOverflowAudits(ownerHash, config.HISTORY_LIMIT)).filter((id) => !isTracked(id));
+    const deleted = await deleteAudits(ids);
+    await Promise.all(deleted.map((id) => fs.rm(path.join(config.ARTIFACTS_DIR, id), { recursive: true, force: true })));
+  } catch (err) {
+    console.error('History pruning failed:', err);
+  }
+}
 
 /** History: only the audits created by THIS browser. */
 auditsRouter.get('/', async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
   const q = typeof req.query.q === 'string' && req.query.q.trim() ? req.query.q.trim().slice(0, 200) : undefined;
-  res.json(await listAudits(req.ownerHash, page, limit, q));
+  res.json({ ...(await listAudits(req.ownerHash, page, limit, q)), historyLimit: config.HISTORY_LIMIT });
 });
 
 /** Anyone with the (unguessable) link can VIEW an audit; `isOwner` tells the UI whether to offer cancel/delete. */
@@ -83,6 +98,13 @@ auditsRouter.get('/:id/previous', async (req, res) => {
   const prev = await getPreviousAudit(req.params.id);
   if (!prev) return res.status(204).end();
   res.json(prev);
+});
+
+auditsRouter.get('/:id/history', async (req, res) => {
+  if (!uuid.safeParse(req.params.id).success) return res.status(404).json({ error: 'Audit not found' });
+  // Trends reveal the owner's other runs, so only the owner gets them
+  if ((await getAuditOwner(req.params.id)) !== req.ownerHash) return res.json([]);
+  res.json(await getUrlHistory(req.params.id));
 });
 
 auditsRouter.post('/:id/cancel', async (req, res) => {
