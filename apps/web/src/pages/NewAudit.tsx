@@ -1,19 +1,33 @@
 import { useMutation } from '@tanstack/react-query';
-import { useRef, useState, type FormEvent } from 'react';
+import { ArrowRight, Check, Clock, Globe, Loader2 } from 'lucide-react';
+import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CHECK_IDS, CHECK_META, type CheckId } from '@pulseqa/shared';
-import { Caret, Spinner } from '../components/ui';
+import { CHECK_ICON } from '../components/checkIcons';
+import { Button, Card } from '../components/ui';
 import { api } from '../lib/api';
-import { CHECK_FLAG } from '../lib/checks';
-import { cn } from '../lib/format';
+import { cn, hostOf } from '../lib/format';
 
-const BANNER = String.raw`
- ____        _          ___    _
-|  _ \ _   _| |___  ___/ _ \  / \
-| |_) | | | | / __|/ _ \ | | |/ _ \
-|  __/| |_| | \__ \  __/ |_| / ___ \
-|_|    \__,_|_|___/\___|\__\_\_/   \_\
-`;
+const HISTORY_KEY = 'pulseqa-url-history';
+const HISTORY_MAX = 20;
+
+function loadHistory(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, HISTORY_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(url: string) {
+  try {
+    const next = [url, ...loadHistory().filter((u) => u !== url)].slice(0, HISTORY_MAX);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+  } catch {
+    /* storage unavailable — history is a convenience only */
+  }
+}
 
 function looksLikeUrl(v: string) {
   try {
@@ -26,11 +40,12 @@ function looksLikeUrl(v: string) {
 
 export function NewAudit() {
   const navigate = useNavigate();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState('');
-  const [focused, setFocused] = useState(true);
   const [checks, setChecks] = useState<Set<CheckId>>(new Set(CHECK_IDS));
   const [error, setError] = useState<string | null>(null);
+  const [history] = useState<string[]>(loadHistory);
+  const [histIndex, setHistIndex] = useState(-1);
+  const [draft, setDraft] = useState('');
 
   const create = useMutation({
     mutationFn: api.createAudit,
@@ -46,119 +61,154 @@ export function NewAudit() {
       return next;
     });
 
+  const run = (value: string) => {
+    const v = value.trim();
+    if (!v) return setError('Enter the URL of the website you want to audit.');
+    if (!looksLikeUrl(v)) return setError(`"${v}" doesn't look like a valid URL — try something like https://example.com`);
+    if (checks.size === 0) return setError('Select at least one check to run.');
+    setError(null);
+    saveHistory(v);
+    create.mutate({ url: v, checks: CHECK_IDS.filter((c) => checks.has(c)) });
+  };
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const value = url.trim();
-    if (!value) return setError('usage: audit <url>   e.g. audit https://example.com');
-    if (!looksLikeUrl(value)) return setError(`audit: invalid url '${value}'`);
-    if (checks.size === 0) return setError('audit: no checks selected (use --all)');
-    setError(null);
-    create.mutate({ url: value, checks: CHECK_IDS.filter((c) => checks.has(c)) });
+    run(url);
+  };
+
+  // ↑ / ↓ recall previously audited URLs, like a shell
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowUp' && history.length) {
+      e.preventDefault();
+      if (histIndex === -1) setDraft(url);
+      const next = Math.min(histIndex + 1, history.length - 1);
+      setHistIndex(next);
+      setUrl(history[next]);
+    } else if (e.key === 'ArrowDown' && histIndex >= 0) {
+      e.preventDefault();
+      const next = histIndex - 1;
+      setHistIndex(next);
+      setUrl(next === -1 ? draft : history[next]);
+    }
   };
 
   const all = checks.size === CHECK_IDS.length;
-  const flags = all ? '--all' : CHECK_IDS.filter((c) => checks.has(c)).map((c) => `--${CHECK_FLAG[c]}`).join(' ');
 
   return (
-    <div className="space-y-6" onClick={() => inputRef.current?.focus()}>
-      <div>
-        <pre className="glow-green overflow-x-auto text-[11px] leading-tight text-term-green sm:text-xs" aria-hidden>{BANNER}</pre>
-        <p className="mt-2 text-term-dim">
-          Automated web auditing &amp; E2E test execution <span className="text-term-faint">v0.1.0</span>
-        </p>
-        <p className="text-term-dim">
-          Type a URL and press <kbd className="text-term-fg">Enter</kbd> to run{' '}
-          <span className="text-term-fg">{checks.size}</span> checks. No test scripts needed.
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-8 text-center">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1 text-xs text-muted">
+          <span className="size-1.5 rounded-full bg-brand" /> Playwright · axe-core · Core Web Vitals
+        </span>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Audit any website in one click</h1>
+        <p className="mx-auto mt-3 max-w-xl text-muted">
+          Paste a URL and PulseQA checks availability, broken links, console errors, responsive layout, accessibility, performance and
+          security headers — no test scripts needed.
         </p>
       </div>
 
-      {/* prompt */}
-      <form onSubmit={submit} className="space-y-1">
-        <div className="text-term-faint">
-          # {flags}
-        </div>
-        <label className="flex flex-wrap items-center gap-x-2 text-[14px]">
-          <span className="whitespace-nowrap">
-            <span className="text-term-green">qa@pulseqa</span>
-            <span className="text-term-dim">:</span>
-            <span className="text-term-cyan">~</span>
-            <span className="text-term-dim">$</span> <span className="text-term-violet">audit</span>
-          </span>
-          <span className="relative flex min-w-[12rem] flex-1 items-center">
-            <input
-              ref={inputRef}
-              autoFocus
-              type="text"
-              inputMode="url"
-              spellCheck={false}
-              autoComplete="off"
-              aria-label="URL to audit"
-              placeholder={focused && !url ? '' : 'https://your-app.vercel.app'}
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value);
-                setError(null);
-              }}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              disabled={create.isPending}
-              className="w-full bg-transparent text-term-fg caret-transparent outline-none placeholder:text-term-faint"
-              style={{ width: `${Math.max(url.length, 1) + 1}ch`, maxWidth: '100%' }}
-            />
-            {focused && !create.isPending && (
-              <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 whitespace-pre text-transparent">
-                {url}
-                <Caret />
-              </span>
-            )}
-          </span>
-          <button type="submit" className="sr-only">Run audit</button>
-        </label>
-        {create.isPending && (
-          <p className="text-term-cyan">
-            <Spinner /> creating audit job…
-          </p>
+      <form onSubmit={submit} className="space-y-3">
+        <Card className="p-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="relative flex-1">
+              <span className="sr-only">Website URL</span>
+              <Globe className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-faint" />
+              <input
+                type="text"
+                inputMode="url"
+                autoFocus
+                spellCheck={false}
+                autoComplete="off"
+                aria-label="URL to audit"
+                placeholder="https://your-app.vercel.app"
+                value={url}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  setHistIndex(-1);
+                  setError(null);
+                }}
+                onKeyDown={onKeyDown}
+                disabled={create.isPending}
+                className="h-12 w-full rounded-lg bg-transparent pl-10 pr-3 text-base outline-none placeholder:text-faint"
+              />
+            </label>
+            <Button type="submit" variant="primary" disabled={create.isPending} className="h-12 px-6 text-base">
+              {create.isPending ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
+              Run audit
+            </Button>
+          </div>
+        </Card>
+        {error && <p className="px-1 text-sm text-bad">{error}</p>}
+
+        {history.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 px-1 text-sm">
+            <span className="inline-flex items-center gap-1 text-muted">
+              <Clock className="size-3.5" /> Recent:
+            </span>
+            {history.slice(0, 5).map((h) => (
+              <button
+                key={h}
+                type="button"
+                onClick={() => setUrl(h)}
+                className="rounded-full border border-line bg-panel px-2.5 py-0.5 text-xs text-muted transition hover:border-brand hover:text-fg"
+                title={h}
+              >
+                {hostOf(h)}
+              </button>
+            ))}
+          </div>
         )}
-        {error && <p className="text-term-red">{error}</p>}
       </form>
 
-      {/* check selection */}
-      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 text-term-dim">
-          <span># checks</span>
+      <div className="mt-10">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold">
+            Checks to run <span className="font-normal text-muted">({checks.size}/{CHECK_IDS.length})</span>
+          </h2>
           <button
             type="button"
             onClick={() => setChecks(all ? new Set() : new Set(CHECK_IDS))}
-            className="text-term-cyan hover:underline"
+            className="text-sm font-medium text-brand-strong hover:underline"
           >
-            {all ? '--none' : '--all'}
+            {all ? 'Clear all' : 'Select all'}
           </button>
         </div>
-        <ul className="space-y-px">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {CHECK_IDS.map((id) => {
             const on = checks.has(id);
+            const Icon = CHECK_ICON[id];
             return (
-              <li key={id}>
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={on}
-                  onClick={() => toggle(id)}
-                  className="group flex w-full items-baseline gap-3 px-1 py-0.5 text-left hover:bg-term-raised focus-visible:bg-term-raised focus-visible:outline-none"
+              <button
+                key={id}
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                onClick={() => toggle(id)}
+                className={cn(
+                  'flex items-start gap-3 rounded-xl border p-3 text-left transition',
+                  on ? 'border-brand/60 bg-brand/5' : 'border-line bg-panel hover:border-faint',
+                )}
+              >
+                <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg', on ? 'bg-brand/15 text-brand-strong' : 'bg-raised text-muted')}>
+                  <Icon className="size-4.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">{CHECK_META[id].name}</span>
+                  <span className="block text-xs text-muted">{CHECK_META[id].description}</span>
+                </span>
+                <span
+                  className={cn(
+                    'mt-0.5 grid size-5 shrink-0 place-items-center rounded-md border',
+                    on ? 'border-brand-strong bg-brand-strong text-white' : 'border-line',
+                  )}
                 >
-                  <span className={cn('shrink-0', on ? 'text-term-green' : 'text-term-faint')}>[{on ? 'x' : ' '}]</span>
-                  <span className={cn('w-24 shrink-0', on ? 'text-term-fg' : 'text-term-dim')}>{CHECK_FLAG[id]}</span>
-                  <span className={cn('hidden w-56 shrink-0 sm:block', on ? 'text-term-fg' : 'text-term-dim')}>{CHECK_META[id].name}</span>
-                  <span className="min-w-0 truncate text-term-dim">{CHECK_META[id].description}</span>
-                </button>
-              </li>
+                  {on && <Check className="size-3.5" />}
+                </span>
+              </button>
             );
           })}
-        </ul>
-      </div>
-
-      <div className="border-t border-term-line pt-3 text-[11px] text-term-faint">
-        tip: localhost &amp; staging URLs work too · results are saved to history · alt+2 opens history
+        </div>
+        <p className="mt-6 text-center text-xs text-faint">Tip: localhost and staging URLs work too · press ↑ in the URL box to reuse a previous URL</p>
       </div>
     </div>
   );

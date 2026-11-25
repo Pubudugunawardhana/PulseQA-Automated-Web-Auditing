@@ -1,34 +1,44 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { AlertTriangle, Ban, CheckCircle2, CircleDashed, Clock, Loader2, MinusCircle, XCircle } from 'lucide-react';
+import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import type { AuditStatus, CheckStatus, OverallStatus } from '@pulseqa/shared';
 import { cn } from '../lib/format';
 
 type AnyStatus = CheckStatus | OverallStatus | AuditStatus;
 
-export const STATUS_TEXT: Record<string, { tag: string; cls: string }> = {
-  pass: { tag: 'PASS', cls: 'text-term-green' },
-  warn: { tag: 'WARN', cls: 'text-term-amber' },
-  fail: { tag: 'FAIL', cls: 'text-term-red' },
-  error: { tag: 'ERR!', cls: 'text-term-red' },
-  failed: { tag: 'FAIL', cls: 'text-term-red' },
-  skipped: { tag: 'SKIP', cls: 'text-term-dim' },
-  pending: { tag: 'WAIT', cls: 'text-term-faint' },
-  queued: { tag: 'QUEUED', cls: 'text-term-dim' },
-  running: { tag: 'RUN', cls: 'text-term-cyan' },
-  completed: { tag: 'DONE', cls: 'text-term-green' },
-  cancelled: { tag: 'CANCELLED', cls: 'text-term-amber' },
+const STATUS: Record<string, { label: string; tag: string; text: string; pill: string; icon: ReactNode }> = {
+  pass: { label: 'Pass', tag: 'PASS', text: 'text-ok', pill: 'bg-ok/10 text-ok ring-ok/25', icon: <CheckCircle2 className="size-3.5" /> },
+  warn: { label: 'Warning', tag: 'WARN', text: 'text-warn', pill: 'bg-warn/10 text-warn ring-warn/25', icon: <AlertTriangle className="size-3.5" /> },
+  fail: { label: 'Fail', tag: 'FAIL', text: 'text-bad', pill: 'bg-bad/10 text-bad ring-bad/25', icon: <XCircle className="size-3.5" /> },
+  error: { label: 'Error', tag: 'ERR!', text: 'text-bad', pill: 'bg-bad/10 text-bad ring-bad/25', icon: <XCircle className="size-3.5" /> },
+  failed: { label: 'Failed', tag: 'FAIL', text: 'text-bad', pill: 'bg-bad/10 text-bad ring-bad/25', icon: <XCircle className="size-3.5" /> },
+  skipped: { label: 'Skipped', tag: 'SKIP', text: 'text-muted', pill: 'bg-raised text-muted ring-line', icon: <MinusCircle className="size-3.5" /> },
+  pending: { label: 'Waiting', tag: 'WAIT', text: 'text-faint', pill: 'bg-raised text-muted ring-line', icon: <CircleDashed className="size-3.5" /> },
+  queued: { label: 'Queued', tag: 'QUEUED', text: 'text-muted', pill: 'bg-raised text-muted ring-line', icon: <Clock className="size-3.5" /> },
+  running: { label: 'Running', tag: 'RUN', text: 'text-info', pill: 'bg-info/10 text-info ring-info/25', icon: <Loader2 className="size-3.5 animate-spin" /> },
+  completed: { label: 'Completed', tag: 'DONE', text: 'text-ok', pill: 'bg-ok/10 text-ok ring-ok/25', icon: <CheckCircle2 className="size-3.5" /> },
+  cancelled: { label: 'Cancelled', tag: 'CANCELLED', text: 'text-warn', pill: 'bg-warn/10 text-warn ring-warn/25', icon: <Ban className="size-3.5" /> },
 };
 
 export const toneCls = (tone?: string) =>
-  tone === 'pass' ? 'text-term-green' : tone === 'warn' ? 'text-term-amber' : tone === 'fail' ? 'text-term-red' : 'text-term-fg';
+  tone === 'pass' ? 'text-ok' : tone === 'warn' ? 'text-warn' : tone === 'fail' ? 'text-bad' : 'text-fg';
 
-/** `[PASS]` style tag. */
+/** Pill badge (default) or bare colored text like `PASS` (used inside the terminal log). */
 export function StatusBadge({ status, bare }: { status: AnyStatus; bare?: boolean }) {
-  const s = STATUS_TEXT[status] ?? STATUS_TEXT.pending;
-  if (status === 'running') return <Spinner className="text-term-cyan" label="RUN" />;
-  return <span className={cn('font-bold', s.cls)}>{bare ? s.tag : `[${s.tag}]`}</span>;
+  const s = STATUS[status] ?? STATUS.pending;
+  if (bare) {
+    if (status === 'running') return <Spinner className="text-info" label="RUN" />;
+    return <span className={cn('font-bold', s.text)}>{s.tag}</span>;
+  }
+  return (
+    <span className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset', s.pill)}>
+      {s.icon}
+      {s.label}
+    </span>
+  );
 }
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+/** Braille spinner (terminal style). */
 export function Spinner({ className, label }: { className?: string; label?: string }) {
   const [i, setI] = useState(0);
   useEffect(() => {
@@ -36,7 +46,7 @@ export function Spinner({ className, label }: { className?: string; label?: stri
     return () => clearInterval(t);
   }, []);
   return (
-    <span className={cn('font-bold', className)}>
+    <span className={cn('font-mono font-bold', className)}>
       {FRAMES[i]}
       {label && ` ${label}`}
     </span>
@@ -44,68 +54,94 @@ export function Spinner({ className, label }: { className?: string; label?: stri
 }
 
 export function Caret() {
-  return <span className="caret ml-px inline-block h-[1.1em] w-[0.6em] translate-y-[0.15em] bg-term-green" aria-hidden />;
+  return <span className="caret ml-px inline-block h-[1.1em] w-[0.55em] translate-y-[0.15em] bg-ok" aria-hidden />;
 }
 
-/** ASCII progress bar: ████████░░░░ */
-export function ProgressBar({ value, total, width = 28 }: { value: number; total: number; width?: number }) {
-  const filled = total ? Math.round((value / total) * width) : 0;
+/** Smooth progress bar. */
+export function ProgressBar({ value, total, className }: { value: number; total: number; className?: string }) {
+  const pct = total ? Math.min(100, Math.round((value / total) * 100)) : 0;
   return (
-    <span aria-label={`${value} of ${total}`} className="whitespace-pre">
-      <span className="text-term-green">{'█'.repeat(filled)}</span>
-      <span className="text-term-faint">{'░'.repeat(width - filled)}</span>
-    </span>
+    <div className={cn('h-2 overflow-hidden rounded-full bg-raised', className)} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+      <div className="h-full rounded-full bg-brand transition-all duration-500" style={{ width: `${pct}%` }} />
+    </div>
   );
 }
 
 export function scoreTone(score: number | null) {
-  if (score === null) return 'text-term-dim';
-  return score >= 90 ? 'text-term-green' : score >= 50 ? 'text-term-amber' : 'text-term-red';
+  if (score === null) return 'text-muted';
+  return score >= 90 ? 'text-ok' : score >= 50 ? 'text-warn' : 'text-bad';
 }
 
-/** Key/value metric: `fcp ........ 1324ms` */
+export function ScoreRing({ score, size = 96 }: { score: number | null; size?: number }) {
+  const r = (size - 10) / 2;
+  const c = 2 * Math.PI * r;
+  const value = score ?? 0;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90" aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={8} className="fill-none stroke-raised" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          strokeWidth={8}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c - (value / 100) * c}
+          className={cn('fill-none stroke-current transition-all duration-700', scoreTone(score))}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-2xl font-bold tabular-nums">{score ?? '—'}</span>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted">score</span>
+      </div>
+    </div>
+  );
+}
+
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('rounded-xl border border-line bg-panel shadow-sm', className)}>{children}</div>;
+}
+
+/** Metric tile: small label above a bold value. */
 export function Stat({ label, value, tone }: { label: string; value: ReactNode; tone?: 'pass' | 'warn' | 'fail' | 'unknown' }) {
   return (
-    <div className="flex min-w-0 items-baseline gap-2">
-      <span className="shrink-0 text-term-dim">{label}</span>
-      <span className="min-w-4 flex-1 overflow-hidden whitespace-nowrap text-term-faint">{'.'.repeat(80)}</span>
-      <span className={cn('shrink-0 font-bold tabular-nums', toneCls(tone))}>{value}</span>
+    <div className="rounded-lg bg-raised px-3 py-2">
+      <div className="truncate text-[11px] font-medium uppercase tracking-wide text-muted">{label.replace(/_/g, ' ')}</div>
+      <div className={cn('mt-0.5 text-base font-semibold tabular-nums', toneCls(tone))}>{value}</div>
     </div>
   );
 }
 
 export function StatGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-1 gap-x-8 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
+  return <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">{children}</div>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <p className="text-term-dim"># {children}</p>;
+  return <p className="rounded-lg border border-dashed border-line px-3 py-3 text-center text-sm text-muted">{children}</p>;
 }
 
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <h4 className="text-term-cyan">
-        <span className="text-term-faint">## </span>
-        {title}
-      </h4>
-      <div className="pl-3">{children}</div>
+    <div className="space-y-2">
+      <h4 className="text-sm font-semibold text-fg">{title.charAt(0).toUpperCase() + title.slice(1)}</h4>
+      <div>{children}</div>
     </div>
   );
 }
 
 export function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
-    <div className="overflow-x-auto border border-term-line">
-      <table className="w-full text-left text-[12px]">
-        <thead className="border-b border-term-line bg-term-raised text-term-dim">
-          <tr>{head.map((h) => <th key={h} className="whitespace-nowrap px-2 py-1 font-medium uppercase">{h}</th>)}</tr>
+    <div className="overflow-x-auto rounded-lg border border-line">
+      <table className="w-full text-left text-[13px]">
+        <thead className="bg-raised text-xs text-muted">
+          <tr>{head.map((h) => <th key={h} className="whitespace-nowrap px-3 py-2 font-medium capitalize">{h}</th>)}</tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-line">
           {rows.map((r, i) => (
-            <tr key={i} className="border-b border-term-line/60 align-top last:border-0 hover:bg-term-raised/60">
+            <tr key={i} className="align-top hover:bg-raised/50">
               {/* first column holds long URLs/selectors; short columns must not break mid-word */}
-              {r.map((c, j) => <td key={j} className={cn('px-2 py-1', j === 0 ? 'break-all' : 'whitespace-nowrap')}>{c}</td>)}
+              {r.map((c, j) => <td key={j} className={cn('px-3 py-2', j === 0 ? 'break-all' : 'whitespace-nowrap')}>{c}</td>)}
             </tr>
           ))}
         </tbody>
@@ -114,13 +150,21 @@ export function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   );
 }
 
-/** Terminal-style button: `[ re-run ]` */
-export function TermButton({ children, className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+const BUTTON: Record<ButtonVariant, string> = {
+  primary: 'bg-brand-strong text-white hover:brightness-110 shadow-sm',
+  secondary: 'border border-line bg-panel text-fg hover:bg-raised',
+  ghost: 'text-muted hover:bg-raised hover:text-fg',
+  danger: 'border border-bad/30 bg-bad/10 text-bad hover:bg-bad/15',
+};
+
+export function Button({ variant = 'secondary', className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
   return (
     <button
       {...props}
       className={cn(
-        'whitespace-nowrap border border-term-line px-2 py-0.5 text-term-fg transition hover:border-term-green hover:text-term-green focus-visible:border-term-green focus-visible:outline-none disabled:opacity-40 disabled:hover:border-term-line disabled:hover:text-term-fg',
+        'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50',
+        BUTTON[variant],
         className,
       )}
     >
@@ -128,3 +172,6 @@ export function TermButton({ children, className, ...props }: React.ButtonHTMLAt
     </button>
   );
 }
+
+/** Kept for compatibility: secondary button. */
+export const TermButton = (props: ButtonHTMLAttributes<HTMLButtonElement>) => <Button variant="secondary" {...props} />;
