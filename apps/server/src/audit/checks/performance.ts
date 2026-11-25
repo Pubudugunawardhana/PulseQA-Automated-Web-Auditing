@@ -49,9 +49,12 @@ async function collectMetrics(page: Page) {
           const po = new PerformanceObserver((l) => list.push(...l.getEntries()));
           po.observe({ type, buffered: true } as PerformanceObserverInit);
           setTimeout(() => {
+            // takeRecords() returns queued entries synchronously — on a busy/throttled main thread
+            // the observer callback may not have run yet, which used to lose LCP on mobile.
+            list.push(...po.takeRecords());
             po.disconnect();
             resolve(list);
-          }, 300);
+          }, 500);
         } catch {
           resolve(list);
         }
@@ -129,11 +132,13 @@ export const performanceCheck: Check = {
     ctx.signal.addEventListener('abort', close, { once: true });
     try {
       const page = await context.newPage();
-      await applyMobileThrottling(context, page);
+      const cdp = await applyMobileThrottling(context, page);
       // A slow page may not reach "load" in time — still read FCP/LCP collected so far.
       await page.goto(ctx.page.url() || ctx.url, { waitUntil: 'load', timeout: MOBILE_LOAD_TIMEOUT }).catch((err: Error) => {
         if (!/Timeout/i.test(err.message)) throw err;
       });
+      // Measurement is done; lift the CPU throttle so reading the metrics isn't slowed down.
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 }).catch(() => {});
       mobile = (await collectMetrics(page)).metrics;
     } catch (err) {
       mobileError = (err as Error).message.split('\n')[0];

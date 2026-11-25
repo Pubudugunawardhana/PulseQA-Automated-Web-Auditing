@@ -106,6 +106,8 @@ export interface ViewportResult {
   pageHeight?: number;
   offenders?: { selector: string; right: number; width: number }[];
   offenderCount?: number;
+  /** Page hadn't finished loading in time; measured what had rendered. */
+  partial?: boolean;
   error?: string;
 }
 export interface ResponsiveSummary {

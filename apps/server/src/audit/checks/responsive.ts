@@ -35,8 +35,21 @@ export const responsiveCheck: Check = {
       ctx.signal.addEventListener('abort', close, { once: true });
       try {
         const page = await context.newPage();
-        await page.goto(target, { waitUntil: 'load', timeout: 30_000 });
-        await page.waitForLoadState('networkidle', { timeout: 4_000 }).catch(() => {});
+        // Video/audio files are the heaviest downloads and don't change layout (their CSS box is
+        // sized either way) — skip them so 3 parallel loads fit on slow connections.
+        // fallback() (not continue()) keeps the context-level SSRF guard in the chain.
+        await page.route('**/*', (route) => (route.request().resourceType() === 'media' ? route.abort() : route.fallback()));
+
+        // 3 viewports load in parallel and share bandwidth: only DOMContentLoaded is required, and even
+        // a timeout isn't fatal as long as a document exists — we measure what has rendered so far.
+        let partial = false;
+        await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 45_000 }).catch(async (err: Error) => {
+          const hasDocument = await page.evaluate(() => !!document.body).catch(() => false);
+          if (!/Timeout/i.test(err.message) || !hasDocument) throw err;
+          partial = true;
+        });
+        await page.waitForLoadState('load', { timeout: 20_000 }).catch(() => {});
+        await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
 
         const info = await page.evaluate(() => {
           const doc = document.documentElement;
@@ -97,7 +110,7 @@ export const responsiveCheck: Check = {
         });
         return {
           shot: await ctx.saveScreenshot(vp.label, shot),
-          viewport: { label: vp.label, width: vp.width, height: vp.height, horizontalOverflow: overflowPx > 1, ...info },
+          viewport: { label: vp.label, width: vp.width, height: vp.height, horizontalOverflow: overflowPx > 1, partial, ...info },
         };
       } catch (err) {
         return { shot: null, viewport: { label: vp.label, width: vp.width, height: vp.height, error: (err as Error).message.split('\n')[0] } };
