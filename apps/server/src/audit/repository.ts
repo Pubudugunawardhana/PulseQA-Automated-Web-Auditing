@@ -1,5 +1,5 @@
-import { and, asc, count, desc, eq, ilike, inArray, isNull, lt } from 'drizzle-orm';
-import { ACTIVE_STATUSES, type AuditDetailDTO, type AuditDTO, type CheckId, type CheckResult } from '@pulseqa/shared';
+import { and, asc, count, desc, eq, ilike, inArray, isNull, lt, or } from 'drizzle-orm';
+import { ACTIVE_STATUSES, type AuditDetailDTO, type AuditDTO, type AuditHistoryPoint, type CheckId, type CheckResult } from '@pulseqa/shared';
 import { db } from '../db/client.js';
 import { auditArtifacts, auditChecks, audits, type AuditRow } from '../db/schema.js';
 
@@ -98,6 +98,40 @@ export async function getPreviousAudit(id: string): Promise<AuditDetailDTO | nul
     .orderBy(desc(audits.createdAt))
     .limit(1);
   return prev ? detailFromRow(prev) : null;
+}
+
+/** The same owner's completed runs of the same URL up to and including `id`, oldest first (summaries only). */
+export async function getUrlHistory(id: string, limit = 20): Promise<AuditHistoryPoint[]> {
+  const [current] = await db.select().from(audits).where(eq(audits.id, id));
+  if (!current) return [];
+  const rows = await db
+    .select()
+    .from(audits)
+    .where(
+      and(
+        eq(audits.url, current.url),
+        current.ownerHash ? eq(audits.ownerHash, current.ownerHash) : isNull(audits.ownerHash),
+        eq(audits.status, 'completed'),
+        // by id for the current run: JS Dates drop Postgres' microseconds, so `<=` could miss it
+        or(eq(audits.id, current.id), lt(audits.createdAt, current.createdAt)),
+      ),
+    )
+    .orderBy(desc(audits.createdAt))
+    .limit(limit);
+  if (rows.length === 0) return [];
+  const checks = await db
+    .select({ auditId: auditChecks.auditId, checkId: auditChecks.checkId, status: auditChecks.status, summary: auditChecks.summary })
+    .from(auditChecks)
+    .where(inArray(auditChecks.auditId, rows.map((r) => r.id)));
+  return rows.reverse().map((r) => ({
+    id: r.id,
+    createdAt: r.createdAt.toISOString(),
+    score: r.score,
+    overallStatus: (r.overallStatus as AuditHistoryPoint['overallStatus']) ?? null,
+    checks: checks
+      .filter((c) => c.auditId === r.id)
+      .map((c) => ({ checkId: c.checkId as CheckId, status: c.status as CheckResult['status'], summary: c.summary })),
+  }));
 }
 
 export async function markStarted(id: string, startedAt: Date) {

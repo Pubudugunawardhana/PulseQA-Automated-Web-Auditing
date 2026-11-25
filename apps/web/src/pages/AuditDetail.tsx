@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -21,6 +21,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CHECK_META, type AuditDetailDTO, type CheckId, type CheckResult } from '@pulseqa/shared';
 import { CheckDetails } from '../components/CheckDetails';
 import { CHECK_ICON } from '../components/checkIcons';
+import { Overview } from '../components/Overview';
 import { Button, Card, ProgressBar, ScoreRing, Spinner, StatusBadge } from '../components/ui';
 import { api, auditKey } from '../lib/api';
 import { CHECK_FLAG, EXECUTION_ORDER, headline } from '../lib/checks';
@@ -183,7 +184,7 @@ function CompareCard({ audit, previous }: { audit: AuditDetailDTO; previous: Aud
     <Card className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="font-semibold">Changes since the previous run</h2>
+          <h2 className="font-semibold">Changes since the compared run</h2>
           <p className="text-xs text-muted">
             Compared with{' '}
             <Link to={`/audits/${diff.previousId}`} className="font-medium text-brand-strong hover:underline">
@@ -266,11 +267,20 @@ export function AuditDetail() {
   const detailRef = useRef<HTMLDivElement>(null);
 
   const finished = !!audit && !live;
-  const previous = useQuery({
-    queryKey: ['previous', id],
-    queryFn: () => api.getPrevious(id),
-    enabled: finished && audit?.status === 'completed',
+  const completed = finished && audit?.status === 'completed';
+  const history = useQuery({ queryKey: ['history', id], queryFn: () => api.getHistory(id), enabled: completed });
+  // "Compare to": null = automatic (the run right before this one), 'none' = off
+  const [compareChoice, setCompareChoice] = useState<string | null>(null);
+  const earlierRuns = (history.data ?? []).filter((h) => h.id !== id);
+  const compareId = compareChoice ?? earlierRuns[earlierRuns.length - 1]?.id ?? 'none';
+  const compare = useQuery({
+    queryKey: auditKey(compareId),
+    queryFn: () => api.getAudit(compareId),
+    enabled: completed && compareId !== 'none',
+    staleTime: Infinity, // finished audits don't change
+    placeholderData: keepPreviousData, // no flicker while switching "compare to"
   });
+  const compareAudit = compareId !== 'none' ? (compare.data ?? null) : null;
 
   const rerun = useMutation({
     mutationFn: () => api.createAudit({ url: audit!.url, checks: audit!.checks }),
@@ -436,6 +446,17 @@ export function AuditDetail() {
         {showLog && <TerminalLog audit={audit} selected={selected} results={results} current={current} times={times} />}
       </div>
 
+      {completed && (
+        <Overview
+          audit={audit}
+          history={history.data ?? []}
+          compare={compareAudit}
+          compareId={compareId}
+          onCompareChange={setCompareChoice}
+          onSelectCheck={setSelectedCheck}
+        />
+      )}
+
       {/* check cards */}
       <div>
         <div className="mb-3 flex items-baseline justify-between">
@@ -484,7 +505,7 @@ export function AuditDetail() {
         </div>
       )}
 
-      {previous.data && <CompareCard audit={audit} previous={previous.data} />}
+      {compareAudit && <CompareCard audit={audit} previous={compareAudit} />}
     </div>
   );
 }
