@@ -8,6 +8,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Eye,
   FileJson,
   Loader2,
   Minus,
@@ -342,10 +343,21 @@ export function AuditDetail() {
   const done = audit.results.length;
   const current = running ?? (audit.status === 'running' ? (selected.find((c) => !results.has(c)) ?? null) : null);
   const showLog = logOpen ?? live;
+  const isOwner = audit.isOwner !== false; // undefined (older API) behaves like owner
   const selectedResult = selectedCheck ? results.get(selectedCheck) : undefined;
 
   return (
     <div className="space-y-6">
+      {!isOwner && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-info/30 bg-info/5 px-4 py-3 text-sm">
+          <Eye className="size-4 shrink-0 text-info" />
+          <span className="flex-1">
+            <span className="font-medium">Shared report — read-only.</span>{' '}
+            <span className="text-muted">This audit was run by someone else. Re-run it to get your own copy in your history.</span>
+          </span>
+        </div>
+      )}
+
       {/* header */}
       <Card className="p-5">
         <div className="flex flex-col gap-5 md:flex-row md:items-center">
@@ -371,7 +383,7 @@ export function AuditDetail() {
           </div>
           <div className="flex flex-wrap gap-2 md:flex-col md:items-stretch">
             {live ? (
-              <Button variant="danger" onClick={() => cancel.mutate()} disabled={cancel.isPending || cancel.isSuccess}>
+              isOwner && <Button variant="danger" onClick={() => cancel.mutate()} disabled={cancel.isPending || cancel.isSuccess}>
                 {cancel.isPending || cancel.isSuccess ? <Loader2 className="size-4 animate-spin" /> : <Ban className="size-4" />}
                 {cancel.isSuccess ? 'Cancelling…' : 'Cancel audit'}
               </Button>

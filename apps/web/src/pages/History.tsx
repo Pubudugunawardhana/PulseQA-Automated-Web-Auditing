@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { Loader2, Lock, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AuditDTO } from '@pulseqa/shared';
@@ -74,6 +74,9 @@ export function History() {
           <h1 className="text-2xl font-bold tracking-tight">Audit history</h1>
           <p className="text-sm text-muted">
             {data ? `${data.total} audit${data.total === 1 ? '' : 's'}${q ? ` matching “${q}”` : ''}` : ' '}
+            <span className="ml-2 inline-flex items-center gap-1 text-xs text-faint" title="No login needed: audits are tied to this browser. Share an audit's link to show it to others (read-only).">
+              <Lock className="size-3" /> Private to this browser
+            </span>
           </p>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
