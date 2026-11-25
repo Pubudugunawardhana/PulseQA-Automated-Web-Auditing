@@ -43,7 +43,9 @@ export function headline(r: CheckResult): string {
     }
     case 'accessibility': {
       const { summary: s } = shape(r, 'accessibility');
-      return `${s.violations} violations (${s.critical} critical, ${s.serious} serious)`;
+      const mobileOnly = shape(r, 'accessibility').details.mobileOnly?.length;
+      const mobile = s.mobile ? ` · mobile ${s.mobile.violations}${mobileOnly ? ` (+${mobileOnly} mobile-only)` : ''}` : '';
+      return `${s.violations} violations (${s.critical} critical, ${s.serious} serious)${mobile}`;
     }
     case 'performance': {
       const { summary: s } = shape(r, 'performance');

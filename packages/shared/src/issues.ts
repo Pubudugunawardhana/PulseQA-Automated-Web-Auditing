@@ -93,7 +93,11 @@ function issuesOf(r: CheckResult): Issue[] {
     }
     case 'accessibility': {
       const d = as(r, 'accessibility').details;
-      for (const v of d.violations ?? []) {
+      const tagged = [
+        ...(d.violations ?? []).map((v) => ({ v, mobile: false })),
+        ...(d.mobileOnly ?? []).map((v) => ({ v, mobile: true })),
+      ];
+      for (const { v, mobile } of tagged) {
         const sev: IssueSeverity = v.impact === 'critical' || v.impact === 'serious' ? 'error' : v.impact === 'moderate' ? 'warning' : 'notice';
         // axe's own per-element advice, minus its "Fix any of the following:" preamble
         const steps = (v.nodes[0]?.failureSummary ?? '')
@@ -102,8 +106,8 @@ function issuesOf(r: CheckResult): Issue[] {
           .filter((l) => l && !/^fix (any|all) of the following/i.test(l));
         add(
           sev,
-          v.help,
-          [`${v.id} (${v.impact})`],
+          mobile ? `${v.help} (mobile only)` : v.help,
+          [`${mobile ? 'mobile ' : ''}${v.id} (${v.impact})`],
           { tip: steps.length ? `${v.description} To fix: ${steps.join('; ')}.` : v.description, docs: v.helpUrl },
           { count: Math.max(1, v.nodeCount), example: v.nodes[0]?.html.slice(0, 200) },
         );

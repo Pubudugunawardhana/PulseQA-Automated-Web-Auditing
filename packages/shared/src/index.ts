@@ -79,6 +79,8 @@ export interface AuditHistoryPoint {
 
 export interface AuditListDTO {
   items: AuditDTO[];
+  /** How many audits the server keeps per browser (older ones are removed automatically). */
+  historyLimit?: number;
   total: number;
   page: number;
   limit: number;

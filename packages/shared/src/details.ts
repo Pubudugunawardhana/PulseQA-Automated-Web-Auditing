@@ -131,16 +131,23 @@ export interface A11yViolation {
   nodeCount: number;
   nodes: { target: string; html: string; failureSummary: string }[];
 }
+export type ImpactCounts = Record<Impact, number> & { violations: number };
 export interface AccessibilitySummary extends Record<Impact, number> {
   violations: number;
   passes: number;
   incomplete: number;
+  /** Same scan on a 375px mobile viewport (null if that run failed / older audits: undefined). */
+  mobile?: ImpactCounts | null;
 }
 export interface AccessibilityDetails {
   violations: A11yViolation[];
   incomplete: { id: string; help: string; helpUrl: string; nodeCount: number }[];
   axeVersion: string;
   highlighted?: number;
+  /** Rules that fail ONLY on the mobile viewport (or affect more elements there), e.g. touch-target size, mobile menus. */
+  mobileOnly?: A11yViolation[];
+  mobileError?: string | null;
+  mobileViewport?: string;
 }
 
 // ---------- performance ----------
