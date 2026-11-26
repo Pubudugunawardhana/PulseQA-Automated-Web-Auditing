@@ -1,7 +1,7 @@
 // Checks tab: one card per check; the selected check's full report opens below.
 import { Clock, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { CHECK_META, type CheckId, type CheckResult } from '@pulseqa/shared';
+import { CHECK_META, type AuditDetailDTO, type CheckId, type CheckResult } from '@pulseqa/shared';
 import { headline } from '../../lib/checks';
 import { cn, formatMs } from '../../lib/format';
 import { CheckDetails } from '../CheckDetails';
@@ -68,6 +68,7 @@ function CheckCard({
 }
 
 export function ChecksTab({
+  audit,
   checks,
   results,
   current,
@@ -75,6 +76,7 @@ export function ChecksTab({
   selected,
   onSelect,
 }: {
+  audit: AuditDetailDTO;
   checks: CheckId[];
   results: Map<CheckId, CheckResult>;
   current: CheckId | null;
@@ -127,7 +129,7 @@ export function ChecksTab({
               </Button>
             </div>
             <div className="p-5">
-              <CheckDetails result={selectedResult} />
+              <CheckDetails result={selectedResult} audit={audit} />
             </div>
           </Card>
         </div>

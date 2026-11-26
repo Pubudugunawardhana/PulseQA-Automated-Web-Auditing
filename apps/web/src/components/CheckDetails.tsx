@@ -1,7 +1,8 @@
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
-import type { A11yViolation, CheckId, CheckResult, ConsoleEntry, LinkProbe, NetworkEntry, Party, PerfMetricKey, Rating, Screenshot } from '@pulseqa/shared';
+import type { A11yViolation, AuditDetailDTO, CheckId, CheckResult, ConsoleEntry, LinkProbe, NetworkEntry, Party, PerfMetricKey, Rating, Screenshot } from '@pulseqa/shared';
 import { shape } from '../lib/checks';
 import { cn, formatMs } from '../lib/format';
+import { CrossBrowser, Seo, Visual } from './CheckPanelsNew';
 import { Empty, Section, Stat, StatGrid, StatusBadge, Table, toneCls } from './ui';
 
 function Lines({ items, tone, mark }: { items?: string[]; tone: string; mark: string }) {
@@ -450,7 +451,7 @@ function Security({ r }: { r: CheckResult }) {
   );
 }
 
-const PANELS: Record<CheckId, (p: { r: CheckResult }) => JSX.Element> = {
+const PANELS: Record<CheckId, (p: { r: CheckResult; audit?: AuditDetailDTO }) => JSX.Element> = {
   smoke: Smoke,
   links: Links,
   consoleNetwork: ConsoleNetwork,
@@ -458,9 +459,15 @@ const PANELS: Record<CheckId, (p: { r: CheckResult }) => JSX.Element> = {
   accessibility: Accessibility,
   performance: Performance,
   security: Security,
+  seo: Seo,
+  visual: Visual,
+  crossBrowser: CrossBrowser,
 };
 
-export function CheckDetails({ result }: { result: CheckResult }) {
+/** Panels that lay out their own screenshots. */
+const OWN_GALLERY = new Set<CheckId>(['responsive', 'visual', 'crossBrowser']);
+
+export function CheckDetails({ result, audit }: { result: CheckResult; audit?: AuditDetailDTO }) {
   if (result.status === 'skipped' || result.status === 'error') {
     return (
       <p>
@@ -471,8 +478,8 @@ export function CheckDetails({ result }: { result: CheckResult }) {
   const Panel = PANELS[result.checkId];
   return (
     <div className="space-y-3">
-      {result.checkId !== 'responsive' && <ScreenshotGallery shots={result.screenshots} />}
-      <Panel r={result} />
+      {!OWN_GALLERY.has(result.checkId) && <ScreenshotGallery shots={result.screenshots} />}
+      <Panel r={result} audit={audit} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 // Page header: breadcrumb, site identity, meta chips and actions (+ progress while running).
-import { Ban, Calendar, Check, ChevronRight, Clock, ExternalLink, Eye, Layers, Link2, Loader2, RotateCcw } from 'lucide-react';
+import { Ban, Calendar, Check, ChevronRight, Clock, ExternalLink, Eye, Layers, Link2, Loader2, RotateCcw, Stamp } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { CHECK_META, type AuditDetailDTO, type CheckId } from '@pulseqa/shared';
@@ -90,6 +90,11 @@ export function AuditHeader({
               <Chip icon={<Layers className="size-3.5" />}>
                 {audit.checks.length} check{audit.checks.length === 1 ? '' : 's'}
               </Chip>
+              {audit.isVisualBaseline && (
+                <Chip icon={<Stamp className="size-3.5 text-brand-strong" />} title="Future runs of this URL are compared with this run's screenshots">
+                  Visual baseline
+                </Chip>
+              )}
               {!isOwner && (
                 <Chip icon={<Eye className="size-3.5 text-info" />} title="This audit was run by someone else. Re-run it to get your own copy in your history.">
                   Shared report · read-only

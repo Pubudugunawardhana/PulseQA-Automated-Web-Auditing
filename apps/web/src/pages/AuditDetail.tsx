@@ -231,6 +231,7 @@ export function AuditDetail() {
           ))}
         {tab === 'checks' && (
           <ChecksTab
+            audit={audit}
             checks={selected}
             results={results}
             current={current}

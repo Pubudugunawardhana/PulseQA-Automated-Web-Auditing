@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Lock, Plus, Search, Trash2 } from 'lucide-react';
+import { Loader2, Lock, Plus, Search, Stamp, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AuditDTO } from '@pulseqa/shared';
@@ -18,7 +18,14 @@ function Row({ a, onDelete, deleting }: { a: AuditDTO; onDelete: () => void; del
       </td>
       <td className="max-w-0 w-full px-4 py-3">
         <Link to={`/audits/${a.id}`} className="block min-w-0">
-          <span className="block truncate font-medium group-hover:text-brand-strong">{hostOf(a.url)}</span>
+          <span className="flex items-center gap-2">
+            <span className="truncate font-medium group-hover:text-brand-strong">{hostOf(a.url)}</span>
+            {a.isVisualBaseline && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded bg-brand/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-brand-strong" title="Approved visual baseline for this URL">
+                <Stamp className="size-3" /> Baseline
+              </span>
+            )}
+          </span>
           <span className="block truncate text-xs text-muted">{a.url}</span>
         </Link>
       </td>

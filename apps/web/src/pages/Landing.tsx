@@ -18,6 +18,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CHECK_IDS, CHECK_META } from '@pulseqa/shared';
 import { Gauge, PolarChart, Sparkline, StackedBar } from '../components/charts';
+import { SHORT } from '../components/audit/shared';
 import { CHECK_ICON } from '../components/checkIcons';
 import { Button, Card } from '../components/ui';
 import { api } from '../lib/api';
@@ -78,7 +79,7 @@ function QuickAudit({ size = 'lg' }: { size?: 'lg' | 'md' }) {
         </Button>
       </div>
       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
-        {error ? <span className="text-bad">{error}</span> : <span className="text-muted">All 7 checks · no sign-up · results in about a minute</span>}
+        {error ? <span className="text-bad">{error}</span> : <span className="text-muted">All 10 checks · no sign-up · results in about a minute</span>}
         <Link to={url.trim() ? `/new?url=${encodeURIComponent(url.trim())}` : '/new'} className="inline-flex items-center gap-1 font-medium text-brand-strong hover:underline">
           <SlidersHorizontal className="size-3.5" /> Choose checks
         </Link>
@@ -89,10 +90,11 @@ function QuickAudit({ size = 'lg' }: { size?: 'lg' | 'md' }) {
 
 /** Static sample report built from the real dashboard components. */
 function HeroPreview() {
+  const sample = [100, 100, 50, 100, 100, 50, 100, 100, 100, 50];
   const slices = EXECUTION_ORDER.map((c, i) => ({
-    label: { smoke: 'Smoke', links: 'Links', consoleNetwork: 'Console', responsive: 'Responsive', accessibility: 'A11y', performance: 'Perf', security: 'Security' }[c],
-    value: [100, 100, 50, 100, 100, 50, 100][i],
-    toneClass: [100, 100, 50, 100, 100, 50, 100][i] === 100 ? 'text-ok' : 'text-warn',
+    label: SHORT[c],
+    value: sample[i] ?? 100,
+    toneClass: (sample[i] ?? 100) === 100 ? 'text-ok' : 'text-warn',
   }));
   return (
     <div className="relative" aria-hidden>
@@ -171,7 +173,7 @@ const LOG: [time: string, tag: string, tone: string, text: string][] = [
   ['14:02:21', 'PASS', 'text-ok', 'perf ............ lcp 1.4 s · mobile lcp 2.9 s'],
   ['14:02:34', 'FAIL', 'text-bad', 'links ........... 1 broken image'],
   ['14:02:41', 'PASS', 'text-ok', 'a11y ............ 0 violations · mobile 0'],
-  ['14:02:49', 'DONE', 'text-ok', 'score 87/100 · 7 checks · 38.2 s'],
+  ['14:02:49', 'DONE', 'text-ok', 'score 87/100 · 10 checks · 61.4 s'],
 ];
 
 export function Landing() {
@@ -206,7 +208,7 @@ export function Landing() {
       {/* stats strip */}
       <section className="grid grid-cols-2 divide-line rounded-2xl border border-line bg-panel sm:grid-cols-4 sm:divide-x">
         {[
-          ['7', 'automated checks'],
+          ['10', 'automated checks'],
           ['3', 'viewports tested'],
           ['WCAG 2.1', 'AA accessibility rules'],
           ['~1 min', 'for a full audit'],
@@ -220,8 +222,8 @@ export function Landing() {
 
       {/* checks */}
       <section id="checks" className="scroll-mt-24">
-        <SectionHead eyebrow="What we check" title="Seven checks, one page load">
-          A real Chromium browser loads your page once and every check reuses it — fast, consistent and close to what your users experience.
+        <SectionHead eyebrow="What we check" title="Ten checks, one click">
+          Real Chromium, Firefox and WebKit browsers load your page — most checks reuse a single page load, so a full audit stays fast and close to what your users experience.
         </SectionHead>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {EXECUTION_ORDER.map((c) => {
@@ -251,7 +253,7 @@ export function Landing() {
         <div className="grid items-start gap-8 lg:grid-cols-2">
           <ol className="space-y-6">
             {[
-              ['Paste a URL', 'Any public website — or localhost while you develop. Run all seven checks or choose your own.'],
+              ['Paste a URL', 'Any public website — or localhost while you develop. Run all ten checks or choose your own.'],
               ['Watch it run live', 'Each check streams in as it finishes. Cancel any time; every audit has a hard time limit.'],
               ['Fix what matters first', 'Issues are ranked as errors, warnings and notices, each with a clear tip and copy-paste example. Re-run to confirm the fix.'],
             ].map(([t, d], i) => (

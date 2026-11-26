@@ -22,6 +22,9 @@ export const SHORT: Record<CheckId, string> = {
   accessibility: 'A11y',
   performance: 'Perf',
   security: 'Security',
+  seo: 'SEO',
+  visual: 'Visual',
+  crossBrowser: 'Browsers',
 };
 
 export const STATUS_VALUE: Partial<Record<CheckStatus, number>> = { pass: 100, warn: 50, fail: 0, error: 0 };
