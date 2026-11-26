@@ -2,10 +2,12 @@
 
 # ⚡ PulseQA
 
-### Automated Web Auditing &amp; E2E Test Execution Platform
+### Automated Web Auditing Platform
 
-Paste any URL → get a full quality report in seconds.<br/>
-**Availability · Broken links · Console errors · Responsive layout · Accessibility · Performance · Security** — no test scripts required.
+Paste any URL → a real browser runs 11 checks and returns a scored report with a fix for every issue.<br/>
+**Availability · Broken links · Console errors · Responsive · Accessibility · Performance · Security · SEO · Visual regression · Cross-browser · Site crawl** — no test scripts required.
+
+**[🌐 Live demo](https://pulseqa-automated-web-auditing.fly.dev)** · [Releases](https://github.com/Pubudugunawardhana/PulseQA-Automated-Web-Auditing/releases) · [Security](SECURITY.md)
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
@@ -15,7 +17,7 @@ Paste any URL → get a full quality report in seconds.<br/>
 ![axe-core](https://img.shields.io/badge/axe--core-WCAG%202.1%20AA-663399)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
-![Tests](https://img.shields.io/badge/tests-45%20passing-success)
+![Tests](https://img.shields.io/badge/tests-46%20passing-success)
 
 <img src="docs/screenshots/dashboard.png" alt="PulseQA audit dashboard: KPI tiles, top issues, check breakdown and score trend" width="900" />
 
@@ -400,7 +402,7 @@ Set in `.env` at the project root (see [`.env.example`](.env.example)).
 npm test
 ```
 
-**45 tests** across three levels:
+**46 tests** across three levels:
 
 - **Unit** – URL validation & SSRF IP ranges, first/third-party site detection, scoring, performance thresholds.
 - **API** – validation, ownership & privacy rules (403s, scoped history, owner-only trends), de-duplication, cancel/delete rules, rate limiting (Supertest, DB mocked).
