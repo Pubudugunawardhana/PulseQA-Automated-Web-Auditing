@@ -3,7 +3,7 @@ import { config } from '../config.js';
 import { AUDIT_TIMEOUT_MS, runAuditEngine } from './engine.js';
 import { publish } from './events.js';
 import { enqueue } from './queue.js';
-import { finishAudit, getAuditKey, getVisualBaseline, markStarted, saveCheckResult, setVisualBaseline } from './repository.js';
+import { finishAudit, getAuditKey, saveAuditArtifact, getVisualBaseline, markStarted, saveCheckResult, setVisualBaseline } from './repository.js';
 
 export function scheduleAudit(auditId: string, url: string, checks: CheckId[]): void {
   enqueue(auditId, (signal) => executeAudit(auditId, url, checks, signal));
@@ -27,7 +27,7 @@ async function executeAudit(auditId: string, url: string, checks: CheckId[], sig
     const key = checks.includes('visual') ? await getAuditKey(auditId) : null;
     const baseline = key ? await getVisualBaseline(key.ownerHash, key.url) : null;
 
-    const { finalUrl, results, aborted } = await runAuditEngine({
+    const { finalUrl, results, aborted, videoUrl } = await runAuditEngine({
       auditId,
       url,
       checks,
@@ -49,6 +49,8 @@ async function executeAudit(auditId: string, url: string, checks: CheckId[], sig
       await saveCheckResult(auditId, r);
       publish(auditId, { type: 'check:completed', auditId, result: r });
     }
+
+    if (videoUrl) await saveAuditArtifact(auditId, { kind: 'video', checkId: 'session', label: 'session', url: videoUrl }).catch(() => {});
 
     // First visual run for this owner + URL becomes the approved baseline automatically (like Percy)
     const visual = results.find((r) => r.checkId === 'visual');

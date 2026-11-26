@@ -71,10 +71,11 @@ async function detailFromRow(row: AuditRow): Promise<AuditDetailDTO> {
     error: c.error,
     startedAt: c.startedAt?.toISOString() ?? null,
     screenshots: artifacts
-      .filter((a) => a.checkId === c.checkId)
+      .filter((a) => a.checkId === c.checkId && a.kind !== 'video')
       .map((a) => ({ label: a.label, url: `/artifacts/${a.filePath}` })),
   }));
-  return { ...toAuditDTO(row), results };
+  const video = artifacts.find((a) => a.kind === 'video');
+  return { ...toAuditDTO(row), results, video: video ? `/artifacts/${video.filePath}` : null };
 }
 
 export async function getAuditDetail(id: string): Promise<AuditDetailDTO | null> {
@@ -144,6 +145,11 @@ export async function getUrlHistory(id: string, limit = 20): Promise<AuditHistor
 
 export async function markStarted(id: string, startedAt: Date) {
   await db.update(audits).set({ status: 'running', startedAt }).where(eq(audits.id, id));
+}
+
+/** Stores a non-screenshot artifact (e.g. the session video) for an audit. */
+export async function saveAuditArtifact(auditId: string, a: { kind: string; checkId: string; label: string; url: string }) {
+  await db.insert(auditArtifacts).values({ auditId, kind: a.kind, checkId: a.checkId, label: a.label, filePath: a.url.replace(/^\/artifacts\//, '') });
 }
 
 export async function saveCheckResult(auditId: string, r: CheckResult) {

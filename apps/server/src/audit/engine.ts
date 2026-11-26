@@ -1,11 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { Response } from 'playwright';
-import type { CheckId, CheckResult, Screenshot } from '@pulseqa/shared';
+import type { Response, Video } from 'playwright';
+import type { CheckId, CheckResult, PageScan, Screenshot } from '@pulseqa/shared';
 import { assertSafeRedirectChain } from '../lib/urlGuard.js';
 import { getBrowser, newAuditContext, userAgentFor } from './browser.js';
 import { accessibilityCheck } from './checks/accessibility.js';
 import { consoleNetworkCheck } from './checks/consoleNetwork.js';
+import { crawlCheck } from './checks/crawl.js';
 import { crossBrowserCheck } from './checks/crossBrowser.js';
 import { linksCheck } from './checks/links.js';
 import { performanceCheck } from './checks/performance.js';
@@ -14,24 +15,34 @@ import { securityCheck } from './checks/security.js';
 import { seoCheck } from './checks/seo.js';
 import { smokeCheck } from './checks/smoke.js';
 import { visualCheck } from './checks/visual.js';
+import { autoScroll } from './scroll.js';
 import type { Check, CheckContext, Collected } from './types.js';
+
+/** Checks that read the DOM / take screenshots and therefore want lazy content loaded first. */
+/** Checks that work on the main page itself — the session video ends after the last of them. */
+const MAIN_PAGE = new Set<CheckId>(['smoke', 'security', 'seo', 'performance', 'consoleNetwork', 'links', 'accessibility']);
+const VIDEO_SIZE = { width: 1280, height: 720 };
+
+const AFTER_SCROLL = new Set<CheckId>(['consoleNetwork', 'links', 'accessibility', 'responsive', 'visual', 'crossBrowser']);
 
 /** Execution order matters: page-state-sensitive checks first, page-reloading checks last. */
 const EXECUTION_ORDER: Check[] = [
   smokeCheck,
-  consoleNetworkCheck,
   securityCheck,
   seoCheck,
-  performanceCheck,
+  performanceCheck, // measures the untouched load — must run before the auto-scroll
+  // ── auto-scroll happens here (lazy images / sections load) ──
+  consoleNetworkCheck, // after the scroll, so errors from lazy-loaded content count too
   linksCheck,
   accessibilityCheck,
   responsiveCheck,
   visualCheck,
-  crossBrowserCheck, // launches extra browsers — keep last
+  crossBrowserCheck, // launches extra browsers
+  crawlCheck, // visits up to 20 more pages — last, so a slow site can't starve the other checks
 ];
 
 /** Hard ceiling for a whole audit, whatever the target does. */
-export const AUDIT_TIMEOUT_MS = 5 * 60_000;
+export const AUDIT_TIMEOUT_MS = 7 * 60_000;
 
 export interface EngineOptions {
   auditId: string;
@@ -56,6 +67,8 @@ export interface EngineResult {
   results: CheckResult[];
   /** Set when the audit was cancelled or timed out before all checks ran. */
   aborted: 'cancelled' | 'timeout' | null;
+  /** Public URL of the session recording (main page: load, checks, auto-scroll), if one was saved. */
+  videoUrl: string | null;
 }
 
 class TimeoutError extends Error {}
@@ -101,9 +114,19 @@ export async function runAuditEngine(opts: EngineOptions): Promise<EngineResult>
   await fs.mkdir(outDir, { recursive: true });
 
   const browser = await getBrowser();
-  const context = await newAuditContext(browser, { viewport: { width: 1920, height: 1080 } }, { allowPrivateHosts });
+  const videoDir = path.join(outDir, '.video');
+  const context = await newAuditContext(
+    browser,
+    { viewport: { width: 1920, height: 1080 }, recordVideo: { dir: videoDir, size: VIDEO_SIZE } },
+    { allowPrivateHosts },
+  );
   const results: CheckResult[] = [];
   const selected = EXECUTION_ORDER.filter((c) => opts.checks.includes(c.id));
+  // the video stops (context closes) after the last selected check that still needs the main page
+  const lastMainPage = selected.map((c) => MAIN_PAGE.has(c.id)).lastIndexOf(true);
+  let videoUrl: string | null = null;
+  let videoDone = false;
+  let video: Video | null = null;
 
   // Close the browser context as soon as we're cancelled so in-flight Playwright calls fail fast.
   const onAbort = () => void context.close().catch(() => {});
@@ -111,6 +134,20 @@ export async function runAuditEngine(opts: EngineOptions): Promise<EngineResult>
 
   try {
     const page = await context.newPage();
+    video = page.video();
+    /** Closes the main context (which finalises the recording) and keeps the video as session.webm. */
+    const finishVideo = async () => {
+      if (videoDone) return;
+      videoDone = true;
+      await context.close().catch(() => {});
+      if (!video || signal.aborted) return;
+      try {
+        await video.saveAs(path.join(outDir, 'session.webm'));
+        videoUrl = `${prefix}/${auditId}/session.webm`;
+      } catch {
+        /* no video — the report simply won't show one */
+      }
+    };
 
     const collected: Collected = { console: [], pageErrors: [], failedRequests: [], errorResponses: [], requestUrls: [] };
     page.on('console', (msg) => {
@@ -150,7 +187,14 @@ export async function runAuditEngine(opts: EngineOptions): Promise<EngineResult>
       navError = (err as Error).message.split('\n')[0];
     }
 
+    let pageScan: PageScan | null = null;
+    let scrolled = false;
     for (const check of selected) {
+      // Scroll the main page once, right before the first check that needs lazy content
+      if (!scrolled && !navError && AFTER_SCROLL.has(check.id) && !signal.aborted) {
+        scrolled = true;
+        pageScan = await race(autoScroll(page, { signal }), 20_000, signal).catch(() => null);
+      }
       const startedAt = new Date();
       if (signal.aborted) {
         const reason = abortReason(signal);
@@ -188,6 +232,7 @@ export async function runAuditEngine(opts: EngineOptions): Promise<EngineResult>
           artifactsDir: opts.artifactsDir,
           artifactUrl: (id: string, file: string) => `${prefix}/${id}/${file}`,
           baseline: opts.baseline ?? null,
+          pageScan,
           async saveScreenshot(label: string, buffer: Buffer): Promise<Screenshot> {
             const file = `${check.id}-${label}.png`;
             await fs.writeFile(path.join(outDir, file), buffer);
@@ -212,15 +257,22 @@ export async function runAuditEngine(opts: EngineOptions): Promise<EngineResult>
       }
       results.push(result);
       await opts.onCheckCompleted?.(result);
+      if (selected.indexOf(check) >= lastMainPage) await finishVideo();
     }
+    await finishVideo();
 
     return {
       finalUrl: mainResponse && !signal.aborted ? page.url() : mainResponse ? mainResponse.url() : null,
       results,
       aborted: signal.aborted ? abortReason(signal) : null,
+      videoUrl,
     };
   } finally {
     signal.removeEventListener('abort', onAbort);
     await context.close().catch(() => {});
+    // delete() waits until Playwright has finished writing the raw recording — on Windows the file is
+    // locked until then, so removing the folder first fails (EBUSY) for cancelled / timed-out audits.
+    await video?.delete().catch(() => {});
+    await fs.rm(videoDir, { recursive: true, force: true }).catch(() => {});
   }
 }

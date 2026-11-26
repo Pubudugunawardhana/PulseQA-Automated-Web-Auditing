@@ -4,6 +4,7 @@ import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import type { Rating, Screenshot, VisualDetails, VisualSummary, VisualViewport } from '@pulseqa/shared';
 import { newAuditContext, type DeviceProfile } from '../browser.js';
+import { autoScroll } from '../scroll.js';
 import { outcome, type Check, type CheckContext } from '../types.js';
 
 const VIEWPORTS: { label: VisualViewport['label']; width: number; height: number; profile: DeviceProfile; mobile: boolean }[] = [
@@ -34,6 +35,8 @@ async function capture(ctx: CheckContext, vp: (typeof VIEWPORTS)[number]): Promi
       if (!/Timeout/i.test(err.message)) throw err;
     });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+    // lazy images must be loaded in BOTH baseline and current captures, or the diff is just noise
+    await autoScroll(page, { maxPx: MAX_HEIGHT + vp.height, maxMs: 6_000, signal: ctx.signal });
     await page.addStyleTag({ content: FREEZE_CSS }).catch(() => {});
     await page.evaluate(() => document.fonts?.ready).catch(() => {});
     await page.waitForTimeout(300);

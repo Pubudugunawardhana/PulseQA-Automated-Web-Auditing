@@ -43,6 +43,7 @@ export function startFixtureServer(): Promise<{ baseUrl: string; close: () => Pr
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       return res.end(`User-agent: *
 Allow: /
+Disallow: /site/private/
 
 Sitemap: http://127.0.0.1:${port}/sitemap.xml
 `);
@@ -64,6 +65,59 @@ Sitemap: http://127.0.0.1:${port}/sitemap.xml
           `.promo{height:200px;background:#ef4444}</style></head><body><main><h1>Visual fixture</h1><div class="hero"></div>` +
           `${v2 ? '<div class="promo"></div>' : ''}<p>Footer text</p></main></body></html>`,
       );
+    }
+    // Lazy content: the broken image only exists after the bottom of the page scrolls into view
+    if (url.pathname === '/lazy.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(
+        `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width"><title>lazy</title></head><body>` +
+          `<h1>Lazy fixture</h1><div style="height:4000px">tall content</div>` +
+          `<img src="/pixel.png" alt="lazy pixel" loading="lazy" width="10" height="10">` +
+          `<div id="sentinel">bottom</div>` +
+          `<script>new IntersectionObserver(function (entries, io) { if (entries[0].isIntersecting) { io.disconnect(); ` +
+          `var img = document.createElement('img'); img.src = '/missing-lazy.png'; document.body.appendChild(img); } })` +
+          `.observe(document.getElementById('sentinel'));</script></body></html>`,
+      );
+    }
+    // Infinite feed: every scroll near the bottom appends more content (auto-scroll must stop at its cap)
+    if (url.pathname === '/infinite.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(
+        `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width"><title>infinite</title></head><body>` +
+          `<h1>Infinite fixture</h1><div id="feed"></div><script>var feed = document.getElementById('feed');` +
+          `function more() { for (var i = 0; i < 5; i++) { var d = document.createElement('div'); d.style.height = '400px'; d.textContent = 'item'; feed.appendChild(d); } }` +
+          `more(); window.addEventListener('scroll', function () { if (innerHeight + scrollY > document.body.scrollHeight - 800) more(); });</script></body></html>`,
+      );
+    }
+    // Small multi-page site for the crawler
+    if (url.pathname.startsWith('/site/')) {
+      const page = (title: string, body: string) =>
+        `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width"><title>${title}</title>` +
+        `<meta name="description" content="Fixture page used by the PulseQA crawler test suite."></head><body><h1>${title}</h1>${body}</body></html>`;
+      const pages: Record<string, () => string | null> = {
+        '/site/index.html': () =>
+          page(
+            'Site home',
+            ['a', 'b', 'slow', 'missing', 'dup'].map((p) => `<a href="/site/${p}.html?utm_source=test#top">${p}</a> `).join('') +
+              `<a href="/site/private/x.html">private</a> <a href="http://localhost:${port}/site/a.html">other site</a> <a href="/site/file.pdf">pdf</a>`,
+          ),
+        '/site/a.html': () => page('Same title', '<a href="/site/index.html">home</a>'),
+        '/site/dup.html': () => page('Same title', '<a href="/site/a.html">a</a>'),
+        '/site/b.html': () => page('Page B', `<script>setTimeout(function () { throw new Error('crawl-b failure'); }, 0);</script>`),
+        '/site/slow.html': () => page('Slow page', 'slow'),
+        '/site/private/x.html': () => page('Private', 'should never be crawled'),
+      };
+      const render = pages[url.pathname === '/site/' ? '/site/index.html' : url.pathname];
+      if (!render) {
+        res.writeHead(404, { 'Content-Type': 'text/html' });
+        return res.end('<!doctype html><title>404</title><h1>Not found</h1>');
+      }
+      const send = () => {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(render());
+      };
+      if (url.pathname === '/site/slow.html') return void setTimeout(send, 3_500);
+      return send();
     }
     // Cross-browser: breaks only in Firefox
     if (url.pathname === '/xb.html') {
