@@ -54,7 +54,7 @@ Every web app needs the same baseline quality checks before release — is it up
 |---|---|
 | 🔍 **7 automated checks** | Smoke, links & images, console & network, responsive, accessibility (WCAG 2.1 AA), performance (Core Web Vitals), security headers |
 | ⚡ **Live progress** | Server-Sent Events stream each check as it finishes, with a terminal-style live log |
-| 📱 **Desktop + mobile** | 3 viewports (1920 · 768 · 375 px) with screenshots; throttled mobile performance profile (4G, 4× CPU) |
+| 📱 **Desktop + mobile** | 3 viewports (1920 · 768 · 375 px) with screenshots; throttled mobile performance profile (4G, 4× CPU); accessibility scanned on desktop **and** mobile |
 | 🎯 **Low-noise results** | First-party vs third-party error split, bot-protection detection, HEAD→GET fallback, clipped-overflow detection |
 | 📊 **Overview dashboard** | Health-score gauge, issues by type (errors / warnings / notices), per-check polar chart, KPI trend sparklines and a ranked *Top issues* list |
 | 🛠️ **How-to-fix tips** | Every issue comes with remediation guidance — what to change, where it was found, a copy-paste example (e.g. a ready CSP header) and a docs link — in the dashboard and the exported report |
@@ -171,7 +171,7 @@ flowchart TD
 | 🔗 **Broken Links & Images** | Collects every `<a>` and `<img>`, probes up to 150 links / 100 images (12 parallel, 4 per host) with browser-like headers, HEAD → GET fallback, redirects followed manually. 401/403/429 are reported as *restricted* (bot protection), not broken. | Broken internal link or any broken image |
 | 🖥️ **Console & Network** | Uncaught exceptions, `console.error`, failed XHR/fetch and other failed requests — split into **first-party** and **third-party** (ads, analytics). Only first-party problems can fail. | First-party exception or failed API call |
 | 📱 **Responsive UI** | Loads the page at desktop 1920×1080, tablet 768×1024 and mobile 375×812 in parallel, detects real horizontal scrolling (ignores clipped overflow), lists offending elements, full-page screenshots. | Horizontal overflow on any viewport |
-| ♿ **Accessibility** | axe-core with WCAG 2.0/2.1 A + AA rules; violations grouped by impact, with how-to-fix links and a screenshot that **outlines the failing elements**. | Any critical or serious violation |
+| ♿ **Accessibility** | axe-core with WCAG 2.0/2.1 A + AA rules on **desktop (1920×1080) and mobile (375×812, touch, mobile UA)** in parallel; problems that only mobile users hit (e.g. icon-only menu links) are reported separately. Violations grouped by impact, with how-to-fix links and screenshots that **outline the failing elements**. | Any critical or serious violation on either viewport |
 | 🚀 **Performance** | TTFB, FCP, LCP, CLS, load time, request count, transfer size, slowest resources — on desktop **and** a throttled mobile profile (1.6 Mbps, 150 ms RTT, 4× CPU, like Lighthouse). | A desktop metric above the "poor" threshold |
 | 🛡️ **Security Headers** | HTTPS, HTTP→HTTPS redirect, CSP, X-Frame-Options / `frame-ancestors`, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, mixed content, cookie flags, server info leaks. | No HTTPS or mixed content |
 

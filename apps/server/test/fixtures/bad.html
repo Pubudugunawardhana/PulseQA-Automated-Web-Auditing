@@ -5,6 +5,8 @@
     <style>
       .wide { width: 1200px; background: #eee; }
       .low-contrast { color: #bbb; background: #fff; }
+      .mobile-menu { display: none; }
+      @media (pointer: coarse) { .mobile-menu { display: block; } }
     </style>
   </head>
   <body>
@@ -13,6 +15,8 @@
     <div class="wide">This block overflows on mobile.</div>
     <a href="/does-not-exist">Broken internal link</a>
     <a href="/good.html">Working link</a>
+    <!-- only visible on phones: an icon link with no accessible name -->
+    <a href="/good.html" class="mobile-menu"><svg width="24" height="24"></svg></a>
     <img src="/missing-image.png" />
     <button></button>
     <script>

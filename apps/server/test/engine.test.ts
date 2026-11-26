@@ -7,6 +7,7 @@ import {
   classifyIssues,
   countBySeverity,
   type AccessibilityDetails,
+  type AccessibilitySummary,
   type CheckResult,
   type ConsoleNetworkSummary,
   type PerformanceSummary,
@@ -74,6 +75,12 @@ describe('audit engine (integration)', () => {
     const a11y = r.accessibility.details as unknown as AccessibilityDetails;
     expect(a11y.violations.map((v) => v.id)).toEqual(expect.arrayContaining(['image-alt', 'color-contrast', 'button-name']));
     expect(a11y.highlighted).toBeGreaterThan(0);
+    // Mobile viewport: the touch-only icon link without a name is caught as a mobile-only problem
+    const a11ySummary = r.accessibility.summary as unknown as AccessibilitySummary;
+    expect(a11ySummary.mobile?.violations).toBeGreaterThanOrEqual(a11ySummary.violations);
+    expect(a11y.mobileOnly?.map((v) => v.id)).toContain('link-name');
+    expect(a11y.violations.map((v) => v.id)).not.toContain('link-name');
+    await fs.access(path.join(artifactsDir, 'bad', 'accessibility-mobile-violations-highlighted.png'));
     await fs.access(path.join(artifactsDir, 'bad', 'accessibility-violations-highlighted.png'));
 
     const perf = r.performance.summary as unknown as PerformanceSummary;
