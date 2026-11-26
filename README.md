@@ -16,7 +16,7 @@ Paste any URL → get a full quality report in seconds.<br/>
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-31%20passing-success)
 
-<img src="docs/screenshots/results-dark.png" alt="PulseQA audit results dashboard" width="900" />
+<img src="docs/screenshots/dashboard.png" alt="PulseQA audit dashboard: KPI tiles, top issues, check breakdown and score trend" width="900" />
 
 </div>
 
@@ -70,25 +70,9 @@ Every web app needs the same baseline quality checks before release — is it up
 
 ## 📸 Screenshots
 
-### Landing page
-
-<img src="docs/screenshots/landing.png" alt="PulseQA landing page with a one-click audit box" />
-
-| Start an audit | Live progress |
+| Landing page | Issues & how to fix them |
 |---|---|
-| <img src="docs/screenshots/new-audit.png" alt="New audit page" /> | <img src="docs/screenshots/live-audit.png" alt="Audit running with live log" /> |
-
-### Overview dashboard
-
-<img src="docs/screenshots/overview.png" alt="Audit dashboard: header, tabs, KPI tiles, top issues, check breakdown and score trend" />
-
-| Issues tab: filter by severity / check, expand for the fix |
-|---|
-| <img src="docs/screenshots/issues.png" alt="Issues tab with severity filters and a how-to-fix panel" /> |
-
-| Detailed report (Performance: desktop vs throttled mobile) | Private history |
-|---|---|
-| <img src="docs/screenshots/report-performance.png" alt="Performance report" /> | <img src="docs/screenshots/history-dark.png" alt="Audit history" /> |
+| <img src="docs/screenshots/landing.png" alt="PulseQA landing page with a one-click audit box" /> | <img src="docs/screenshots/issues.png" alt="Issues tab with severity filters and a how-to-fix panel" /> |
 
 ---
 
