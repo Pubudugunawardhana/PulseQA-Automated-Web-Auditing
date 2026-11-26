@@ -57,7 +57,12 @@ async function executeAudit(auditId: string, url: string, checks: CheckId[], sig
             status: 'completed',
             score: computeScore(ran),
             overallStatus: computeOverall(ran),
-            error: aborted === 'timeout' ? `Stopped at the ${AUDIT_TIMEOUT_MS / 60_000}-minute limit; ${unsaved.length} check(s) skipped` : null,
+            error:
+              aborted === 'timeout'
+                ? `Stopped at the ${AUDIT_TIMEOUT_MS / 60_000}-minute limit; ${unsaved.length} check(s) skipped`
+                : ran.length > 0 && ran.every((r) => r.status === 'skipped')
+                  ? (ran[0].error ?? 'No check could run') // e.g. "Skipped: page could not be loaded (…)"
+                  : null,
           });
     publish(auditId, { type: 'audit:completed', audit });
   } catch (err) {

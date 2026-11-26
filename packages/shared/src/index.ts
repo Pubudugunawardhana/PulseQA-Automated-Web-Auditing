@@ -126,5 +126,7 @@ export function computeScore(results: Pick<CheckResult, 'checkId' | 'status'>[])
 export function computeOverall(results: Pick<CheckResult, 'status'>[]): OverallStatus {
   if (results.some((r) => r.status === 'fail' || r.status === 'error')) return 'fail';
   if (results.some((r) => r.status === 'warn')) return 'warn';
+  // Nothing could be measured (e.g. the page never loaded and smoke wasn't selected) — that's not a pass.
+  if (!results.some((r) => r.status === 'pass')) return 'fail';
   return 'pass';
 }

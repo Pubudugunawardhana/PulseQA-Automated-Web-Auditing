@@ -52,6 +52,8 @@ describe('scoring', () => {
     expect(computeOverall([{ status: 'pass' }, { status: 'warn' }])).toBe('warn');
     expect(computeOverall([{ status: 'pass' }, { status: 'error' }])).toBe('fail');
     expect(computeOverall([{ status: 'pass' }])).toBe('pass');
+    expect(computeOverall([{ status: 'skipped' }])).toBe('fail'); // nothing measured is not a pass
+    expect(computeOverall([{ status: 'pass' }, { status: 'skipped' }])).toBe('pass');
   });
 });
 
