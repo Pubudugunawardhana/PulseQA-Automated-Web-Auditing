@@ -1,4 +1,4 @@
-import { Accessibility, AppWindow, Gauge, Globe, Images, Link2, MonitorSmartphone, ScanSearch, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react';
+import { Accessibility, AppWindow, Network, Gauge, Globe, Images, Link2, MonitorSmartphone, ScanSearch, ShieldCheck, SquareTerminal, type LucideIcon } from 'lucide-react';
 import type { CheckId } from '@pulseqa/shared';
 
 export const CHECK_ICON: Record<CheckId, LucideIcon> = {
@@ -12,4 +12,5 @@ export const CHECK_ICON: Record<CheckId, LucideIcon> = {
   seo: ScanSearch,
   visual: Images,
   crossBrowser: AppWindow,
+  crawl: Network,
 };

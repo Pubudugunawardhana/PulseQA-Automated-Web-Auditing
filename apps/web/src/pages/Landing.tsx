@@ -79,7 +79,7 @@ function QuickAudit({ size = 'lg' }: { size?: 'lg' | 'md' }) {
         </Button>
       </div>
       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
-        {error ? <span className="text-bad">{error}</span> : <span className="text-muted">All 10 checks · no sign-up · results in about a minute</span>}
+        {error ? <span className="text-bad">{error}</span> : <span className="text-muted">All 11 checks · no sign-up · results in about two minutes</span>}
         <Link to={url.trim() ? `/new?url=${encodeURIComponent(url.trim())}` : '/new'} className="inline-flex items-center gap-1 font-medium text-brand-strong hover:underline">
           <SlidersHorizontal className="size-3.5" /> Choose checks
         </Link>
@@ -173,7 +173,7 @@ const LOG: [time: string, tag: string, tone: string, text: string][] = [
   ['14:02:21', 'PASS', 'text-ok', 'perf ............ lcp 1.4 s · mobile lcp 2.9 s'],
   ['14:02:34', 'FAIL', 'text-bad', 'links ........... 1 broken image'],
   ['14:02:41', 'PASS', 'text-ok', 'a11y ............ 0 violations · mobile 0'],
-  ['14:02:49', 'DONE', 'text-ok', 'score 87/100 · 10 checks · 61.4 s'],
+  ['14:02:49', 'DONE', 'text-ok', 'score 87/100 · 11 checks · 1m 48s'],
 ];
 
 export function Landing() {
@@ -208,10 +208,10 @@ export function Landing() {
       {/* stats strip */}
       <section className="grid grid-cols-2 divide-line rounded-2xl border border-line bg-panel sm:grid-cols-4 sm:divide-x">
         {[
-          ['10', 'automated checks'],
+          ['11', 'automated checks'],
           ['3', 'viewports tested'],
           ['WCAG 2.1', 'AA accessibility rules'],
-          ['~1 min', 'for a full audit'],
+          ['20 pages', 'crawled per audit'],
         ].map(([v, l]) => (
           <div key={l} className="px-5 py-6 text-center">
             <div className="text-2xl font-bold tabular-nums sm:text-3xl">{v}</div>
@@ -222,7 +222,7 @@ export function Landing() {
 
       {/* checks */}
       <section id="checks" className="scroll-mt-24">
-        <SectionHead eyebrow="What we check" title="Ten checks, one click">
+        <SectionHead eyebrow="What we check" title="Eleven checks, one click">
           Real Chromium, Firefox and WebKit browsers load your page — most checks reuse a single page load, so a full audit stays fast and close to what your users experience.
         </SectionHead>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -253,7 +253,7 @@ export function Landing() {
         <div className="grid items-start gap-8 lg:grid-cols-2">
           <ol className="space-y-6">
             {[
-              ['Paste a URL', 'Any public website — or localhost while you develop. Run all ten checks or choose your own.'],
+              ['Paste a URL', 'Any public website — or localhost while you develop. Run all eleven checks — including a 20-page site crawl — or choose your own.'],
               ['Watch it run live', 'Each check streams in as it finishes. Cancel any time; every audit has a hard time limit.'],
               ['Fix what matters first', 'Issues are ranked as errors, warnings and notices, each with a clear tip and copy-paste example. Re-run to confirm the fix.'],
             ].map(([t, d], i) => (

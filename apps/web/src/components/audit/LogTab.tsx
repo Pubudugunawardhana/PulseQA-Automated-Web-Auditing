@@ -1,6 +1,6 @@
 // Log tab: the terminal-style execution log.
 import type { AuditDetailDTO, CheckId, CheckResult } from '@pulseqa/shared';
-import { CHECK_FLAG } from '../../lib/checks';
+import { AFTER_SCROLL, CHECK_FLAG, shape } from '../../lib/checks';
 import { cn, formatMs } from '../../lib/format';
 import { Spinner, StatusBadge } from '../ui';
 
@@ -18,6 +18,13 @@ export function TerminalLog({
   times: Map<CheckId, string>;
 }) {
   const aborted = audit.status === 'failed' || audit.status === 'cancelled';
+  // auto-scroll stats are persisted on the first DOM checks' summaries
+  const scanFrom = (id: 'consoleNetwork' | 'links') => {
+    const r = results.get(id);
+    return r ? shape(r, id).summary.pageScan : undefined;
+  };
+  const scan = scanFrom('consoleNetwork') ?? scanFrom('links');
+  const firstAfterScroll = selected.find((c) => AFTER_SCROLL.includes(c));
   return (
     <div className="terminal overflow-hidden rounded-xl border border-line text-[12.5px] leading-relaxed shadow-sm">
       <div className="flex items-center gap-2 border-b border-line bg-raised px-3 py-1.5 text-[11px] text-muted">
@@ -36,7 +43,17 @@ export function TerminalLog({
         {selected.map((c) => {
           const r = results.get(c);
           const running = current === c;
-          return (
+          return [
+            c === firstAfterScroll && scan ? (
+              <div key="scroll" className="line-in flex items-baseline gap-2 whitespace-nowrap text-info">
+                <span className="w-[72px] shrink-0" />
+                <span className="shrink-0">↓</span>
+                <span>
+                  auto-scrolled {scan.scrolledPx.toLocaleString()}px{scan.capped ? ' (capped)' : ''} · {scan.lazyImagesLoaded} lazy image{scan.lazyImagesLoaded === 1 ? '' : 's'} loaded ·{' '}
+                  {formatMs(scan.durationMs)}
+                </span>
+              </div>
+            ) : null,
             <div key={c} className={cn('flex items-baseline gap-2 whitespace-nowrap', r ? 'line-in' : running ? '' : 'text-faint')}>
               <span className="w-[72px] shrink-0 text-muted">{r || running ? `[${times.get(c) ?? '--:--:--'}]` : ''}</span>
               <span className="shrink-0">{r ? '✓' : running ? '▶' : '·'}</span>
@@ -55,7 +72,7 @@ export function TerminalLog({
                 <span>{aborted ? 'aborted' : 'waiting'}</span>
               )}
             </div>
-          );
+          ];
         })}
         {audit.status === 'queued' && (
           <div className="text-warn">

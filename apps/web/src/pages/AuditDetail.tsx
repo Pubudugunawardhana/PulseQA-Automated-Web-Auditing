@@ -9,6 +9,7 @@ import { IssuesTab, type SeverityFilter } from '../components/audit/IssuesTab';
 import { TerminalLog } from '../components/audit/LogTab';
 import { OverviewTab } from '../components/audit/OverviewTab';
 import { ScreenshotsTab } from '../components/audit/ScreenshotsTab';
+import { SessionVideo } from '../components/audit/SessionVideo';
 import { TAB_IDS, type TabId } from '../components/audit/shared';
 import { Skeleton } from '../components/ui';
 import { api, auditKey } from '../lib/api';
@@ -240,8 +241,13 @@ export function AuditDetail() {
             onSelect={(c) => go({ check: c }, true)}
           />
         )}
-        {tab === 'screenshots' && <ScreenshotsTab checks={selected} results={results} />}
-        {tab === 'log' && <TerminalLog audit={audit} selected={selected} results={results} current={current} times={times} />}
+        {tab === 'screenshots' && <ScreenshotsTab checks={selected} results={results} video={audit.video ?? null} />}
+        {tab === 'log' && (
+          <div className="space-y-5">
+            <TerminalLog audit={audit} selected={selected} results={results} current={current} times={times} />
+            {audit.video && <SessionVideo src={audit.video} />}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 // (used by the Overview dashboard, run-to-run comparison and the exported report).
 import type { BrowserName, CheckShapes, PerfMetricKey, SeoRuleId } from './details';
 import type { CheckId, CheckResult } from './index';
-import { CROSS_BROWSER_FIXES, FIXES, HEADER_FIXES, HEADER_HOWTO, perfFix, SEO_FIXES, smokeFix, VISUAL_FIXES, type Fix } from './remediation';
+import { CRAWL_FIXES, CROSS_BROWSER_FIXES, FIXES, HEADER_FIXES, HEADER_HOWTO, perfFix, SEO_FIXES, smokeFix, VISUAL_FIXES, type Fix } from './remediation';
 
 export type IssueSeverity = 'error' | 'warning' | 'notice';
 
@@ -194,6 +194,35 @@ function issuesOf(r: CheckResult): Issue[] {
           });
         }
       }
+      break;
+    }
+    case 'crawl': {
+      const { summary: s, details: d } = as(r, 'crawl');
+      const pages = d.pages ?? [];
+      const urls = (xs: typeof pages) => xs.map((p) => p.url);
+      const broken = pages.filter((p) => !p.loaded);
+      add('error', `Broken pages on the site (${broken.length})`, urls(broken).map((u) => `crawl broken ${u}`), CRAWL_FIXES.broken, {
+        example: broken[0] && `${broken[0].url} → ${broken[0].status ?? broken[0].error ?? 'failed'}`,
+      });
+      const slow = pages.filter((p) => p.loaded && (p.loadMs ?? 0) > (d.limits?.slowMs ?? 3000));
+      add('warning', `Slow pages (over ${(d.limits?.slowMs ?? 3000) / 1000} s)`, urls(slow).map((u) => `crawl slow ${u}`), CRAWL_FIXES.slow, {
+        example: slow[0] && `${slow[0].url} → ${((slow[0].loadMs ?? 0) / 1000).toFixed(1)} s`,
+      });
+      const js = pages.filter((p) => p.jsErrors > 0);
+      add('warning', 'Pages with JavaScript errors', urls(js).map((u) => `crawl js ${u}`), CRAWL_FIXES.jsErrors, { example: js[0] && `${js[0].url} → ${js[0].firstJsError ?? ''}` });
+      const imgs = pages.filter((p) => p.brokenImages > 0);
+      add('warning', 'Pages with broken images', urls(imgs).map((u) => `crawl img ${u}`), CRAWL_FIXES.brokenImages, { example: imgs[0]?.url });
+      const a11y = pages.filter((p) => (p.a11yIssues ?? 0) > 0);
+      add('warning', 'Pages with serious accessibility violations', urls(a11y).map((u) => `crawl a11y ${u}`), CRAWL_FIXES.a11y, {
+        example: a11y[0] && `${a11y[0].url} → ${a11y[0].a11yIssues} critical/serious`,
+      });
+      for (const t of d.duplicateTitles ?? [])
+        add('warning', `Duplicate title on ${t.urls.length} pages`, [`crawl duptitle ${t.title}`], CRAWL_FIXES.duplicateTitles, { count: t.urls.length, example: `“${t.title}”` });
+      const noTitle = pages.filter((p) => p.loaded && !p.title);
+      add('warning', 'Pages without a title', urls(noTitle).map((u) => `crawl notitle ${u}`), CRAWL_FIXES.missingTitles, { example: noTitle[0]?.url });
+      const noDesc = pages.filter((p) => p.loaded && !p.description);
+      add('notice', 'Pages without a meta description', urls(noDesc).map((u) => `crawl nodesc ${u}`), CRAWL_FIXES.missingDescriptions, { example: noDesc[0]?.url });
+      if (s.notCrawled > 0) add('notice', `${s.notCrawled} more internal pages not crawled`, ['crawl capped'], CRAWL_FIXES.notCrawled, { count: s.notCrawled });
       break;
     }
     case 'crossBrowser': {
