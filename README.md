@@ -14,6 +14,7 @@ Paste any URL → get a full quality report in seconds.<br/>
 ![Playwright](https://img.shields.io/badge/Playwright-Chromium-2EAD33?logo=playwright&logoColor=white)
 ![axe-core](https://img.shields.io/badge/axe--core-WCAG%202.1%20AA-663399)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Tests](https://img.shields.io/badge/tests-45%20passing-success)
 
 <img src="docs/screenshots/dashboard.png" alt="PulseQA audit dashboard: KPI tiles, top issues, check breakdown and score trend" width="900" />
@@ -384,6 +385,13 @@ Production checklist:
 - [ ] **Step 2 — App-specific E2E suites:** Playwright Page Object Model tests for your own apps — user journeys, auth, form validation, CRUD, regression and cross-browser (Chromium / Firefox / WebKit)
 - [ ] **Step 3 — Backend & load:** REST API testing and lightweight load testing (k6)
 - [ ] CI integration — run audits from GitHub Actions with a score threshold
+
+---
+
+## 📄 License & security
+
+- Released under the [MIT License](LICENSE).
+- Found a vulnerability? Please report it privately — see [SECURITY.md](SECURITY.md).
 
 ---
 
