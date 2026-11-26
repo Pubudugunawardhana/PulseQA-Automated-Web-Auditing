@@ -2,7 +2,7 @@ import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import type { A11yViolation, AuditDetailDTO, CheckId, CheckResult, ConsoleEntry, LinkProbe, NetworkEntry, Party, PerfMetricKey, Rating, Screenshot } from '@pulseqa/shared';
 import { shape } from '../lib/checks';
 import { cn, formatMs } from '../lib/format';
-import { CrossBrowser, Seo, Visual } from './CheckPanelsNew';
+import { Crawl, CrossBrowser, Seo, Visual } from './CheckPanelsNew';
 import { Empty, Section, Stat, StatGrid, StatusBadge, Table, toneCls } from './ui';
 
 function Lines({ items, tone, mark }: { items?: string[]; tone: string; mark: string }) {
@@ -138,6 +138,12 @@ function Links({ r }: { r: CheckResult }) {
         <Stat label="broken_links" value={s.brokenLinks} tone={s.brokenLinks ? 'fail' : 'pass'} />
         <Stat label="broken_images" value={s.brokenImages} tone={s.brokenImages ? 'fail' : 'pass'} />
       </StatGrid>
+      {s.pageScan && (
+        <p className="text-xs text-muted">
+          ↓ The page was auto-scrolled ({s.pageScan.scrolledPx.toLocaleString()}px{s.pageScan.capped ? ', stopped at the limit' : ''}) so lazy-loaded links and images were
+          checked too{s.pageScan.lazyImagesLoaded ? ` — ${s.pageScan.lazyImagesLoaded} image${s.pageScan.lazyImagesLoaded === 1 ? '' : 's'} only appeared after scrolling` : ''}.
+        </p>
+      )}
       {d.truncated && <p className="text-xs text-muted">Large page: only the first 150 links / 100 images were checked</p>}
       <Section title="broken links">
         {d.brokenLinks.length ? <Table head={['url', 'text', 'status', 'scope']} rows={d.brokenLinks.map(row)} /> : <Empty>no broken links</Empty>}
@@ -462,6 +468,7 @@ const PANELS: Record<CheckId, (p: { r: CheckResult; audit?: AuditDetailDTO }) =>
   seo: Seo,
   visual: Visual,
   crossBrowser: CrossBrowser,
+  crawl: Crawl,
 };
 
 /** Panels that lay out their own screenshots. */

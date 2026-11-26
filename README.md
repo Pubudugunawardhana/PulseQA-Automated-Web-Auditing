@@ -14,7 +14,7 @@ Paste any URL → get a full quality report in seconds.<br/>
 ![Playwright](https://img.shields.io/badge/Playwright-Chromium-2EAD33?logo=playwright&logoColor=white)
 ![axe-core](https://img.shields.io/badge/axe--core-WCAG%202.1%20AA-663399)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-39%20passing-success)
+![Tests](https://img.shields.io/badge/tests-45%20passing-success)
 
 <img src="docs/screenshots/dashboard.png" alt="PulseQA audit dashboard: KPI tiles, top issues, check breakdown and score trend" width="900" />
 
@@ -28,7 +28,7 @@ Paste any URL → get a full quality report in seconds.<br/>
 - [Features](#-features)
 - [Screenshots](#-screenshots)
 - [How it works — the workflow](#-how-it-works--the-workflow)
-- [The 10 checks in detail](#-the-10-checks-in-detail)
+- [The 11 checks in detail](#-the-11-checks-in-detail)
 - [Architecture](#-architecture)
 - [Privacy & security model](#-privacy--security-model)
 - [Getting started](#-getting-started)
@@ -52,7 +52,7 @@ Every web app needs the same baseline quality checks before release — is it up
 
 | | |
 |---|---|
-| 🔍 **10 automated checks** | Smoke, links & images, console & network, responsive, accessibility (WCAG 2.1 AA), performance (Core Web Vitals), security headers, SEO, visual regression, cross-browser |
+| 🔍 **11 automated checks** | Smoke, links & images, console & network, responsive, accessibility (WCAG 2.1 AA), performance (Core Web Vitals), security headers, SEO, visual regression, cross-browser and a **20-page site crawl** |
 | ⚡ **Live progress** | Server-Sent Events stream each check as it finishes, with a terminal-style live log |
 | 📱 **Desktop + mobile** | 3 viewports (1920 · 768 · 375 px) with screenshots; throttled mobile performance profile (4G, 4× CPU); accessibility scanned on desktop **and** mobile |
 | 🎯 **Low-noise results** | First-party vs third-party error split, bot-protection detection, HEAD→GET fallback, clipped-overflow detection |
@@ -60,7 +60,8 @@ Every web app needs the same baseline quality checks before release — is it up
 | 🛠️ **How-to-fix tips** | Every issue comes with remediation guidance — what to change, where it was found, a copy-paste example (e.g. a ready CSP header) and a docs link — in the dashboard and the exported report |
 | 🔁 **Regression tracking** | Pick any earlier run of the same URL in *Compare to* — score and issue deltas, **NEW** issue badges, fixed issues |
 | 📄 **Export & share** | Self-contained HTML report (screenshots embedded), raw JSON, or a read-only share link |
-| ⛔ **Cancel & time limits** | Cancel any running audit; hard 4-minute ceiling per audit; per-check timeouts |
+| 🎥 **Session recording** | Every audit records a video of the browser on the page — load, checks and auto-scroll — playable in the Log tab and downloadable |
+| ⛔ **Cancel & time limits** | Cancel any running audit; hard 7-minute ceiling per audit; per-check timeouts |
 | 🔒 **Private by default** | No login needed — each browser only sees its own latest 10 audits (anonymous, hashed owner ID; older runs auto-pruned) |
 | 🛡️ **Safe to host publicly** | SSRF guard on every navigation, redirect and link probe; rate limiting; duplicate-run protection |
 | 🚀 **Landing page** | Product landing page at `/` with a one-click *Run free audit* box (advanced options at `/new`) |
@@ -82,7 +83,7 @@ Every web app needs the same baseline quality checks before release — is it up
 
 ```mermaid
 flowchart LR
-    A([🌐 Paste a URL]) --> B[Choose checks<br/>default: all 10]
+    A([🌐 Paste a URL]) --> B[Choose checks<br/>default: all 11]
     B --> C[▶ Run audit]
     C --> D{{Live dashboard}}
     D -->|SSE events| E[Checks finish one by one<br/>+ terminal live log]
@@ -138,10 +139,11 @@ flowchart TD
     G -- yes --> L
     R --> L[Load page once in Chromium<br/>record console · errors · requests]
     L -->|load failed| X[Smoke = FAIL<br/>other checks = SKIPPED]
-    L -->|loaded| C1[Smoke] --> C2[Console & Network] --> C3[Security] --> C4[Performance<br/>+ throttled mobile run]
-    C4 --> C5[Links & Images<br/>parallel HTTP probes] --> C6[Accessibility<br/>axe-core + highlight] --> C7[Responsive<br/>3 viewports in parallel]
-    C7 --> C8[SEO · Visual regression<br/>diff vs approved baseline] --> C9[Cross-browser<br/>Chromium · Firefox · WebKit]
-    C9 --> SC[Weighted score + overall status]
+    L -->|loaded| C1[Smoke] --> C3[Security · SEO] --> C4[Performance<br/>+ throttled mobile run]
+    C4 --> AS[[Auto-scroll<br/>load lazy content]] --> C2[Console & Network]
+    C2 --> C5[Links & Images<br/>parallel HTTP probes] --> C6[Accessibility<br/>axe-core + highlight] --> C7[Responsive<br/>3 viewports in parallel]
+    C7 --> C8[Visual regression<br/>diff vs approved baseline] --> C9[Cross-browser<br/>Chromium · Firefox · WebKit]
+    C9 --> CR[Site crawl<br/>up to 20 internal pages] --> SC[Weighted score + overall status]
     X --> SC
     SC --> DONE([Saved & streamed to UI])
 
@@ -151,13 +153,14 @@ flowchart TD
 **Key design decisions**
 
 - **One page load, many checks** – smoke, console/network, security, performance and accessibility all reuse the same loaded page, so most of an audit costs a single navigation.
+- **Auto-scroll for lazy content** – after Performance has measured the untouched load, the page is scrolled to the bottom in steps (capped at 20 000 px / 10 s for infinite feeds) so lazy-loaded images and sections exist before links, accessibility, console and screenshot checks run; the Log tab shows how far it scrolled and how many lazy images appeared.
 - **Failure isolation** – each check runs with its own timeout inside a `Promise.race`; one crashing check becomes `error` while the rest of the audit continues.
 - **One shared browser** – parallel viewports and the mobile performance run are lightweight *contexts* inside a single Chromium process, keeping memory low on small servers.
 - **Cancellable everywhere** – one `AbortSignal` (user cancel + overall timeout) flows through the engine, checks and HTTP probes, and closes browser contexts immediately.
 
 ---
 
-## 🧪 The 10 checks in detail
+## 🧪 The 11 checks in detail
 
 | Check | What it does | Fails when |
 |---|---|---|
@@ -171,6 +174,7 @@ flowchart TD
 | 🔎 **SEO** | Title & meta description length, canonical URL, `noindex` (meta + `X-Robots-Tag`), `lang`, one `<h1>` and heading order, image `alt`, Open Graph / Twitter card (with a **social share preview**), JSON-LD structured data, `robots.txt` and XML sitemap (fetched with the same SSRF guard). | Missing title, `noindex`, or robots.txt blocking the whole site |
 | 🖼️ **Visual Regression** | Captures desktop (1440×900) and mobile (375×812) screenshots with animations frozen and **pixel-diffs** them (pixelmatch) against the **approved baseline** for that URL — Baseline · Current · Diff view, % of pixels changed, page-height change. The first run becomes the baseline; approve any later run as the new one with one click (Percy-style). The baseline is never pruned. | More than 15 % of pixels changed or the page height changed by more than 25 % (0.5–15 % = warning) |
 | 🧭 **Cross-browser** | Loads the page in **Chromium, Firefox and WebKit (Safari)** — one after another, extra browsers launched only for this check and closed right after — and compares load success, load time, first-party JS/console errors, failed requests, horizontal overflow and screenshots. | Loads in Chrome but not in Firefox/WebKit (browser-only errors or layout differences = warning) |
+| 🕸️ **Site Crawl** | Follows internal links from the audited page (same site, 3 clicks deep, **up to 20 pages**, 3 at a time, respects robots.txt, skips files and tracking params) and checks every page: HTTP status, load time, first-party JS errors, broken images, critical/serious axe violations, title / description / h1 — plus duplicate titles across the site. Shows a filterable, worst-first pages table. | Any broken page (4xx/5xx or not loading); slow pages (>3 s), JS errors, a11y issues or duplicate titles = warning |
 
 **Issue severity (Overview):** every finding is grouped into an *issue* and ranked — **errors** (e.g. broken images, first-party exceptions, critical/serious a11y, poor Core Web Vitals, no HTTPS), **warnings** (moderate a11y, missing security headers, broken external links, console errors) and **notices** (minor a11y, SEO notes, bot-protected links, third-party noise).
 
@@ -254,7 +258,7 @@ pulseqa/
 
 - **SSRF protection** (`ALLOW_PRIVATE_HOSTS=false`): the target, every redirect hop, every browser request and every link probe is checked; anything resolving to localhost / private / link-local ranges is blocked.
 - **Rate limiting:** 10 new audits per minute per client; identical audits already running are de-duplicated.
-- **Resource limits:** max concurrent audits, per-check timeouts, 4-minute audit ceiling, capped link/image counts and screenshot heights.
+- **Resource limits:** max concurrent audits, per-check timeouts, 7-minute audit ceiling, capped link/image counts and screenshot heights.
 
 ---
 
@@ -312,6 +316,7 @@ Set in `.env` at the project root (see [`.env.example`](.env.example)).
 | `PORT` | `4000` | API port |
 | `MAX_CONCURRENT_AUDITS` | `2` | Audits that run at the same time (others wait in the queue) |
 | `HISTORY_LIMIT` | `10` | Audits kept per browser — when a new one starts, the oldest finished ones (and their screenshots) are deleted |
+| `CRAWL_MAX_PAGES` | `20` | Pages the Site Crawl check visits per audit (1–200) |
 | `ALLOW_PRIVATE_HOSTS` | `true` | Allow auditing localhost / private networks. **Set `false` when hosting publicly.** |
 | `ARTIFACTS_DIR` | `./artifacts` | Where screenshots are stored |
 | `CORS_ORIGIN` | `http://localhost:5173` | Allowed web origin(s), comma-separated |
@@ -344,7 +349,7 @@ Set in `.env` at the project root (see [`.env.example`](.env.example)).
 npm test
 ```
 
-**39 tests** across three levels:
+**45 tests** across three levels:
 
 - **Unit** – URL validation & SSRF IP ranges, first/third-party site detection, scoring, performance thresholds.
 - **API** – validation, ownership & privacy rules (403s, scoped history, owner-only trends), de-duplication, cancel/delete rules, rate limiting (Supertest, DB mocked).

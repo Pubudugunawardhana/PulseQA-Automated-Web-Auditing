@@ -4,6 +4,7 @@ import { rateMetric } from '../src/audit/checks/performance.js';
 import { DESCRIPTION_RANGE, rateLength, TITLE_RANGE } from '../src/audit/checks/seo.js';
 import { rateDiff } from '../src/audit/checks/visual.js';
 import { parseRobots } from '../src/lib/safeFetch.js';
+import { isDisallowed, normalizeCrawlUrl } from '../src/audit/checks/crawl.js';
 import { firstUrlIn, siteOf, siteOfUrl } from '../src/lib/site.js';
 import { isPrivateIp, normalizeAuditUrl, UrlValidationError } from '../src/lib/urlGuard.js';
 
@@ -78,7 +79,8 @@ describe('seo helpers', () => {
   });
 
   it('parses robots.txt groups and sitemaps', () => {
-    expect(parseRobots('User-agent: *\nDisallow: /\n')).toEqual({ blocksAll: true, sitemaps: [] });
+    expect(parseRobots('User-agent: *\nDisallow: /\n')).toMatchObject({ blocksAll: true, sitemaps: [] });
+    expect(parseRobots('User-agent: *\nDisallow: /admin\nDisallow: /tmp/').disallow).toEqual(['/admin', '/tmp/']);
     expect(parseRobots('User-agent: Googlebot\nDisallow: /\n\nUser-agent: *\nDisallow: /admin\nSitemap: https://x.com/s.xml').blocksAll).toBe(false);
     expect(parseRobots('User-agent: *\nDisallow:\n# comment\nSitemap: https://x.com/a.xml\nSitemap: https://x.com/b.xml').sitemaps).toHaveLength(2);
   });
@@ -91,5 +93,22 @@ describe('visual regression helpers', () => {
     expect(rateDiff(3, 0)).toBe('warn');
     expect(rateDiff(20, 0)).toBe('fail');
     expect(rateDiff(1, 40)).toBe('fail'); // page height changed a lot
+  });
+});
+
+describe('crawler helpers', () => {
+  it('normalises crawl URLs', () => {
+    expect(normalizeCrawlUrl('/a?utm_source=x&id=2#top', 'https://ex.com/')).toBe('https://ex.com/a?id=2');
+    expect(normalizeCrawlUrl('/report.pdf', 'https://ex.com/')).toBeNull();
+    expect(normalizeCrawlUrl('mailto:hi@ex.com', 'https://ex.com/')).toBeNull();
+    expect(normalizeCrawlUrl('page?fbclid=1', 'https://ex.com/dir/')).toBe('https://ex.com/dir/page');
+    expect(normalizeCrawlUrl('/shop/index.html', 'https://ex.com/')).toBe('https://ex.com/shop/');
+  });
+
+  it('matches robots.txt disallow rules', () => {
+    expect(isDisallowed('https://ex.com/private/a', ['/private/'])).toBe(true);
+    expect(isDisallowed('https://ex.com/public', ['/private/'])).toBe(false);
+    expect(isDisallowed('https://ex.com/a.php?x=1', ['/*.php$'])).toBe(false);
+    expect(isDisallowed('https://ex.com/a.php', ['/*.php$'])).toBe(true);
   });
 });

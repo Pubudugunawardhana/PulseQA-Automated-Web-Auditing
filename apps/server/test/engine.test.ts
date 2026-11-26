@@ -8,12 +8,15 @@ import {
   countBySeverity,
   type AccessibilityDetails,
   type AccessibilitySummary,
+  type CrawlDetails,
+  type CrawlSummary,
   type CrossBrowserDetails,
   type SeoDetails,
   type VisualDetails,
   type VisualSummary,
   type CheckResult,
   type ConsoleNetworkSummary,
+  type LinksSummary,
   type PerformanceSummary,
   type SmokeDetails,
 } from '@pulseqa/shared';
@@ -165,6 +168,54 @@ describe('audit engine (integration)', () => {
     await fs.access(path.join(artifactsDir, 'vis-changed', 'visual-diff-desktop.png'));
     expect(classifyIssues([changed]).some((i) => i.checkId === 'visual')).toBe(true);
   }, 120_000);
+
+  it('auto-scrolls first, so lazy-loaded images are checked too', async () => {
+    const { results } = await runAuditEngine({ auditId: 'lazy', url: `${server.baseUrl}/lazy.html`, checks: ['links', 'accessibility'], artifactsDir });
+    const r = byId(results);
+    const links = r.links.summary as unknown as LinksSummary;
+    expect(links.pageScan?.scrolledPx).toBeGreaterThan(3000);
+    expect(links.pageScan?.capped).toBe(false);
+    // only exists after the bottom of the page was scrolled into view
+    expect((r.links.details as unknown as { brokenImages: { url: string }[] }).brokenImages.map((p) => p.url)).toEqual([expect.stringMatching(/missing-lazy\.png$/)]);
+    expect((r.accessibility.details as unknown as AccessibilityDetails).violations.map((v) => v.id)).toContain('image-alt');
+  }, 90_000);
+
+  it('stops auto-scrolling an infinite feed at the cap', async () => {
+    const started = Date.now();
+    const { results } = await runAuditEngine({ auditId: 'infinite', url: `${server.baseUrl}/infinite.html`, checks: ['links'], artifactsDir });
+    const scan = (results[0].summary as unknown as LinksSummary).pageScan;
+    expect(scan?.capped).toBe(true);
+    expect(scan!.durationMs).toBeLessThan(15_000);
+    expect(Date.now() - started).toBeLessThan(40_000);
+  }, 60_000);
+
+  it('crawls the site: broken, slow, JS-error and duplicate-title pages; respects robots.txt', async () => {
+    const { results } = await runAuditEngine({ auditId: 'crawl', url: `${server.baseUrl}/site/index.html`, checks: ['crawl'], artifactsDir });
+    const r = results[0];
+    const s = r.summary as unknown as CrawlSummary;
+    const d = r.details as unknown as CrawlDetails;
+    const byPath = Object.fromEntries(d.pages.map((p) => [new URL(p.url).pathname, p]));
+    expect(Object.keys(byPath).sort()).toEqual(['/site/', '/site/a.html', '/site/b.html', '/site/dup.html', '/site/missing.html', '/site/slow.html']);
+    expect(d.pages.every((p) => !p.url.includes('utm_source') && !p.url.includes('#'))).toBe(true);
+    expect(byPath['/site/missing.html'].loaded).toBe(false);
+    expect(byPath['/site/missing.html'].status).toBe(404);
+    expect(byPath['/site/slow.html'].loadMs).toBeGreaterThan(3000);
+    expect(byPath['/site/b.html'].jsErrors).toBeGreaterThan(0);
+    expect(d.duplicateTitles).toEqual([expect.objectContaining({ title: 'Same title', urls: expect.arrayContaining([expect.stringContaining('/site/a.html'), expect.stringContaining('/site/dup.html')]) })]);
+    expect(d.skippedByRobots).toBe(1);
+    expect(s).toMatchObject({ pagesCrawled: 6, broken: 1, slow: 1, withJsErrors: 1, partial: false });
+    expect(r.status).toBe('fail');
+    const issues = classifyIssues(results);
+    expect(issues.find((i) => i.title.startsWith('Broken pages'))?.severity).toBe('error');
+  }, 120_000);
+
+  it('records a session video of the main page', async () => {
+    const { videoUrl } = await runAuditEngine({ auditId: 'video', url: `${server.baseUrl}/good.html`, checks: ['smoke', 'links'], artifactsDir });
+    expect(videoUrl).toBe('/artifacts/video/session.webm');
+    const stat = await fs.stat(path.join(artifactsDir, 'video', 'session.webm'));
+    expect(stat.size).toBeGreaterThan(1000);
+    await expect(fs.access(path.join(artifactsDir, 'video', '.video'))).rejects.toThrow(); // temp dir cleaned up
+  }, 60_000);
 
   it('cross-browser: reports an error that only happens in Firefox', async () => {
     const { results } = await runAuditEngine({ auditId: 'xb', url: `${server.baseUrl}/xb.html`, checks: ['crossBrowser'], artifactsDir });
