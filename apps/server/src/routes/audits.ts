@@ -82,7 +82,7 @@ auditsRouter.get('/', async (req, res) => {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
   const q = typeof req.query.q === 'string' && req.query.q.trim() ? req.query.q.trim().slice(0, 200) : undefined;
-  res.json({ ...(await listAudits(req.ownerHash, page, limit, q)), historyLimit: config.HISTORY_LIMIT });
+  res.json({ ...(await listAudits(req.ownerHash, page, limit, q)), historyLimit: config.HISTORY_LIMIT, historyMaxAgeDays: config.HISTORY_MAX_AGE_DAYS });
 });
 
 /** Anyone with the (unguessable) link can VIEW an audit; `isOwner` tells the UI whether to offer cancel/delete. */

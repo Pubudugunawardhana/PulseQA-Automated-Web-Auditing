@@ -226,6 +226,12 @@ export async function getAuditKey(id: string): Promise<{ ownerHash: string | nul
   return row ?? null;
 }
 
+/** Finished audits created before `cutoff` (any owner) — candidates for age-based deletion. */
+export async function findExpiredAudits(cutoff: Date): Promise<string[]> {
+  const rows = await db.select({ id: audits.id, status: audits.status }).from(audits).where(lt(audits.createdAt, cutoff));
+  return rows.filter((r) => !(ACTIVE_STATUSES as readonly string[]).includes(r.status)).map((r) => r.id);
+}
+
 export async function deleteAudits(ids: string[]): Promise<string[]> {
   if (ids.length === 0) return [];
   const rows = await db.delete(audits).where(inArray(audits.id, ids)).returning({ id: audits.id });

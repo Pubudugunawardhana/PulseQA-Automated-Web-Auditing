@@ -54,7 +54,7 @@ Out of scope:
 | SSRF | With `ALLOW_PRIVATE_HOSTS=false`, the target URL, every redirect hop, every browser request (route guard), every link probe and every crawler and robots.txt fetch is resolved and blocked if it points to a loopback, private or link-local address. |
 | Privacy | No accounts. Each browser gets a random 256-bit `httpOnly` cookie; only its **SHA-256 hash** is stored. History, cancel, delete, trends and visual-baseline approval are restricted to the owner (`403` for others). Shared links are read-only. |
 | Abuse limits | 10 new audits per minute per client, de-duplication of identical running audits, a concurrency limit and a queue, per-check timeouts, a 7-minute hard ceiling per audit, capped link, image and crawl counts, and capped screenshot sizes. |
-| Data retention | Each browser keeps only its latest audits (`HISTORY_LIMIT`, default 10). Older audits, their screenshots and their videos are deleted automatically. |
+| Data retention | Each browser keeps only its latest audits (`HISTORY_LIMIT`, default 10), and every audit is deleted after `HISTORY_MAX_AGE_DAYS` (default 10 days), together with its screenshots and video. |
 | Browsers | Firefox and WebKit are launched only for the cross-browser check and closed straight away. Every audit runs in an isolated browser context. |
 
 ## Deployment checklist

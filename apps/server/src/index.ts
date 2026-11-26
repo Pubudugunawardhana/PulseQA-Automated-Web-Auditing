@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { config } from './config.js';
 import { closeBrowser } from './audit/browser.js';
 import { failInterruptedAudits } from './audit/repository.js';
+import { startRetentionSweeper } from './audit/retention.js';
 import { pool } from './db/client.js';
 
 const bootTime = new Date();
@@ -12,6 +13,7 @@ await failInterruptedAudits(bootTime).catch((err) => console.error('[db] could n
 
 const server = createApp().listen(config.PORT, () => {
   console.log(`PulseQA API listening on http://localhost:${config.PORT}`);
+  startRetentionSweeper(); // deletes audits older than HISTORY_MAX_AGE_DAYS now and every hour
 });
 server.on('error', (err: NodeJS.ErrnoException) => {
   if (err.code === 'EADDRINUSE') console.error(`Port ${config.PORT} is already in use — is another PulseQA server running?`);

@@ -20,6 +20,7 @@ const repo = vi.hoisted(() => ({
   findOverflowAudits: vi.fn(async (): Promise<string[]> => []),
   deleteAudits: vi.fn(async (ids: string[]) => ids),
   getVisualBaseline: vi.fn(async () => null),
+  findExpiredAudits: vi.fn(async (): Promise<string[]> => []),
   setVisualBaseline: vi.fn(async (_o: string, _u: string, auditId: string) => ({ auditId, approvedAt: new Date().toISOString() })),
   failInterruptedAudits: vi.fn(),
 }));
@@ -33,6 +34,7 @@ vi.mock('../src/audit/queue.js', () => queue);
 const { createApp } = await import('../src/app.js');
 const { hashOwner, OWNER_COOKIE } = await import('../src/lib/owner.js');
 const app = createApp();
+const { pruneExpiredAudits } = await import('../src/audit/retention.js');
 
 // Two different browsers
 const ALICE = 'a'.repeat(43);
@@ -166,9 +168,23 @@ describe('history limit', () => {
     queue.isTracked.mockReset();
   });
 
-  it('tells the UI how many audits are kept', async () => {
+  it('tells the UI how many audits are kept, and for how long', async () => {
     repo.listAudits.mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
-    expect((await request(app).get('/api/audits').set('Cookie', asAlice).expect(200)).body.historyLimit).toBe(10);
+    const body = (await request(app).get('/api/audits').set('Cookie', asAlice).expect(200)).body;
+    expect(body.historyLimit).toBe(10);
+    expect(body.historyMaxAgeDays).toBe(10);
+  });
+
+  it('deletes audits older than 10 days, but never a running one', async () => {
+    const OLD = '33333333-3333-4333-8333-333333333333';
+    const RUNNING = '44444444-4444-4444-8444-444444444444';
+    repo.findExpiredAudits.mockResolvedValueOnce([OLD, RUNNING]);
+    queue.isTracked.mockImplementation((id: string) => id === RUNNING);
+    const now = new Date('2026-11-26T12:00:00Z');
+    expect(await pruneExpiredAudits(now)).toBe(1);
+    expect(repo.findExpiredAudits).toHaveBeenCalledWith(new Date('2026-11-16T12:00:00Z'));
+    expect(repo.deleteAudits).toHaveBeenCalledWith([OLD]);
+    queue.isTracked.mockReset();
   });
 });
 

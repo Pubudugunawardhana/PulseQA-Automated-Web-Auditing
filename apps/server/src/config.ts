@@ -12,6 +12,8 @@ const schema = z.object({
   MAX_CONCURRENT_AUDITS: z.coerce.number().int().min(1).max(10).default(2),
   /** Audits kept per browser; older ones (and their screenshots) are removed automatically. */
   HISTORY_LIMIT: z.coerce.number().int().min(1).max(1000).default(10),
+  /** Audits older than this many days are deleted automatically (with screenshots and videos). */
+  HISTORY_MAX_AGE_DAYS: z.coerce.number().int().min(1).max(3650).default(10),
   ALLOW_PRIVATE_HOSTS: bool.default(true),
   ARTIFACTS_DIR: z.string().default('./artifacts'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
