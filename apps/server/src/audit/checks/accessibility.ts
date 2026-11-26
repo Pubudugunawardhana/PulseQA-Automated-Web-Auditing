@@ -2,6 +2,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import type { Page } from 'playwright';
 import type { A11yViolation, AccessibilityDetails, AccessibilitySummary, Impact, ImpactCounts, Screenshot } from '@pulseqa/shared';
 import { newAuditContext } from '../browser.js';
+import { autoScroll } from '../scroll.js';
 import { outcome, type Check } from '../types.js';
 
 const MAX_SHOT_HEIGHT = 6000;
@@ -139,6 +140,7 @@ export const accessibilityCheck: Check = {
         const page = await context.newPage();
         await page.goto(ctx.page.url() || ctx.url, { waitUntil: 'domcontentloaded', timeout: MOBILE_LOAD_TIMEOUT });
         await page.waitForLoadState('load', { timeout: 10_000 }).catch(() => {});
+        await autoScroll(page, { maxMs: 6_000, signal: ctx.signal });
         return { page, result: await scan(page) };
       })().then(
         (ok) => ({ ok, error: null as string | null }),

@@ -1,5 +1,5 @@
 import type { Browser, BrowserContext, Page, Response } from 'playwright';
-import type { CheckId, CheckResult, CheckStatus, ConsoleEntry, NetworkEntry, PageErrorEntry, Screenshot } from '@pulseqa/shared';
+import type { CheckId, CheckResult, CheckStatus, ConsoleEntry, NetworkEntry, PageErrorEntry, PageScan, Screenshot } from '@pulseqa/shared';
 
 export type { ConsoleEntry, NetworkEntry, PageErrorEntry };
 
@@ -30,6 +30,8 @@ export interface CheckContext {
   artifactUrl(auditId: string, file: string): string;
   /** Approved visual baseline for this owner + URL, if any. */
   baseline: { auditId: string; approvedAt: string } | null;
+  /** How the main page was auto-scrolled before this check (null = not scrolled / failed). */
+  pageScan: PageScan | null;
   saveScreenshot(label: string, buffer: Buffer): Promise<Screenshot>;
 }
 

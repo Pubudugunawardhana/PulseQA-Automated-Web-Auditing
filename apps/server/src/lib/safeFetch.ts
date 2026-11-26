@@ -57,11 +57,12 @@ export async function fetchText(
 }
 
 /** Parses robots.txt: does the `*` group disallow the whole site, and which sitemaps are listed. */
-export function parseRobots(text: string): { blocksAll: boolean; sitemaps: string[] } {
+export function parseRobots(text: string): { blocksAll: boolean; sitemaps: string[]; disallow: string[] } {
   const sitemaps: string[] = [];
   let inStar = false;
   let groupStarted = false;
   let blocksAll = false;
+  const disallow: string[] = [];
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.replace(/#.*/, '').trim();
     if (!line) continue;
@@ -83,8 +84,9 @@ export function parseRobots(text: string): { blocksAll: boolean; sitemaps: strin
       continue;
     }
     groupStarted = true;
+    if (inStar && key === 'disallow' && value) disallow.push(value);
     if (inStar && key === 'disallow' && value === '/') blocksAll = true;
     if (inStar && key === 'allow' && value === '/') blocksAll = false;
   }
-  return { blocksAll, sitemaps };
+  return { blocksAll, sitemaps, disallow };
 }

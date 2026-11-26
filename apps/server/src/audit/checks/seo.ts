@@ -165,7 +165,8 @@ export const seoCheck: Check = {
     const robotsRes = await fetchText(`${origin}/robots.txt`, fetchOpts);
     let robotsTxt: SeoDetails['robotsTxt'] = { url: robotsRes.url, status: robotsRes.status, blocksAll: false, sitemaps: [] };
     if (robotsRes.status === 200 && robotsRes.text !== null && !/text\/html/i.test(robotsRes.contentType ?? '')) {
-      robotsTxt = { ...robotsTxt, ...parseRobots(robotsRes.text) };
+      const { blocksAll, sitemaps } = parseRobots(robotsRes.text);
+      robotsTxt = { ...robotsTxt, blocksAll, sitemaps };
       rule(
         'robotsTxt',
         'robots.txt',

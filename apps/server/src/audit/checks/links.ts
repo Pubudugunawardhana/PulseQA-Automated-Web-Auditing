@@ -197,6 +197,7 @@ export const linksCheck: Check = {
         brokenLinks: brokenLinks.length,
         brokenImages: brokenImages.length,
         restricted: restricted.length,
+        pageScan: ctx.pageScan,
       } satisfies LinksSummary,
       {
         brokenLinks,

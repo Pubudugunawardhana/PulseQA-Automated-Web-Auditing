@@ -1,5 +1,6 @@
 import type { ResponsiveDetails, ResponsiveSummary, Screenshot, ViewportResult } from '@pulseqa/shared';
 import { newAuditContext } from '../browser.js';
+import { autoScroll } from '../scroll.js';
 import { outcome, type Check } from '../types.js';
 
 export const VIEWPORTS = [
@@ -50,6 +51,8 @@ export const responsiveCheck: Check = {
         });
         await page.waitForLoadState('load', { timeout: 20_000 }).catch(() => {});
         await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
+        // load lazy content so overflow from it is caught and the full-page screenshot isn't blank below the fold
+        await autoScroll(page, { maxMs: 6_000, signal: ctx.signal });
 
         const info = await page.evaluate(() => {
           const doc = document.documentElement;

@@ -46,6 +46,7 @@ export const consoleNetworkCheck: Check = {
         apiFailures: first(apiFailures).length,
         otherFailedRequests: first(otherFailures).length,
         thirdPartyIssues,
+        pageScan: ctx.pageScan,
       } satisfies ConsoleNetworkSummary,
       {
         site,
