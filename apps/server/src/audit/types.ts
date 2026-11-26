@@ -24,6 +24,12 @@ export interface CheckContext {
   signal: AbortSignal;
   /** False on public deployments: never send requests to private/loopback hosts. */
   allowPrivateHosts: boolean;
+  /** Root folder of all audits' artifacts (`<artifactsDir>/<auditId>/<file>`). */
+  artifactsDir: string;
+  /** Public URL of an artifact file of any audit (used to show baseline images). */
+  artifactUrl(auditId: string, file: string): string;
+  /** Approved visual baseline for this owner + URL, if any. */
+  baseline: { auditId: string; approvedAt: string } | null;
   saveScreenshot(label: string, buffer: Buffer): Promise<Screenshot>;
 }
 

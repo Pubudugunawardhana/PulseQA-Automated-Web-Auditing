@@ -6,11 +6,14 @@ import { assertSafeRedirectChain } from '../lib/urlGuard.js';
 import { getBrowser, newAuditContext, userAgentFor } from './browser.js';
 import { accessibilityCheck } from './checks/accessibility.js';
 import { consoleNetworkCheck } from './checks/consoleNetwork.js';
+import { crossBrowserCheck } from './checks/crossBrowser.js';
 import { linksCheck } from './checks/links.js';
 import { performanceCheck } from './checks/performance.js';
 import { responsiveCheck } from './checks/responsive.js';
 import { securityCheck } from './checks/security.js';
+import { seoCheck } from './checks/seo.js';
 import { smokeCheck } from './checks/smoke.js';
+import { visualCheck } from './checks/visual.js';
 import type { Check, CheckContext, Collected } from './types.js';
 
 /** Execution order matters: page-state-sensitive checks first, page-reloading checks last. */
@@ -18,14 +21,17 @@ const EXECUTION_ORDER: Check[] = [
   smokeCheck,
   consoleNetworkCheck,
   securityCheck,
+  seoCheck,
   performanceCheck,
   linksCheck,
   accessibilityCheck,
   responsiveCheck,
+  visualCheck,
+  crossBrowserCheck, // launches extra browsers — keep last
 ];
 
 /** Hard ceiling for a whole audit, whatever the target does. */
-export const AUDIT_TIMEOUT_MS = 4 * 60_000;
+export const AUDIT_TIMEOUT_MS = 5 * 60_000;
 
 export interface EngineOptions {
   auditId: string;
@@ -36,6 +42,8 @@ export interface EngineOptions {
   artifactsUrlPrefix?: string;
   /** Default true (dev). Set false on public deployments to block private-network targets. */
   allowPrivateHosts?: boolean;
+  /** Approved visual-regression baseline for this owner + URL (null = this run becomes the first one). */
+  baseline?: { auditId: string; approvedAt: string } | null;
   /** Abort to cancel the audit. Combined with the overall AUDIT_TIMEOUT_MS. */
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -177,6 +185,9 @@ export async function runAuditEngine(opts: EngineOptions): Promise<EngineResult>
           collected,
           signal,
           allowPrivateHosts,
+          artifactsDir: opts.artifactsDir,
+          artifactUrl: (id: string, file: string) => `${prefix}/${id}/${file}`,
+          baseline: opts.baseline ?? null,
           async saveScreenshot(label: string, buffer: Buffer): Promise<Screenshot> {
             const file = `${check.id}-${label}.png`;
             await fs.writeFile(path.join(outDir, file), buffer);

@@ -3,7 +3,7 @@ import { config } from '../config.js';
 import { AUDIT_TIMEOUT_MS, runAuditEngine } from './engine.js';
 import { publish } from './events.js';
 import { enqueue } from './queue.js';
-import { finishAudit, markStarted, saveCheckResult } from './repository.js';
+import { finishAudit, getAuditKey, getVisualBaseline, markStarted, saveCheckResult, setVisualBaseline } from './repository.js';
 
 export function scheduleAudit(auditId: string, url: string, checks: CheckId[]): void {
   enqueue(auditId, (signal) => executeAudit(auditId, url, checks, signal));
@@ -23,6 +23,10 @@ async function executeAudit(auditId: string, url: string, checks: CheckId[], sig
 
   const saved = new Set<CheckId>();
   try {
+    // Visual regression compares against the owner's approved baseline for this URL
+    const key = checks.includes('visual') ? await getAuditKey(auditId) : null;
+    const baseline = key ? await getVisualBaseline(key.ownerHash, key.url) : null;
+
     const { finalUrl, results, aborted } = await runAuditEngine({
       auditId,
       url,
@@ -30,6 +34,7 @@ async function executeAudit(auditId: string, url: string, checks: CheckId[], sig
       signal,
       artifactsDir: config.ARTIFACTS_DIR,
       allowPrivateHosts: config.ALLOW_PRIVATE_HOSTS,
+      baseline,
       onCheckStarted: (checkId) => publish(auditId, { type: 'check:started', auditId, checkId }),
       onCheckCompleted: async (result) => {
         await saveCheckResult(auditId, result);
@@ -43,6 +48,12 @@ async function executeAudit(auditId: string, url: string, checks: CheckId[], sig
     for (const r of unsaved) {
       await saveCheckResult(auditId, r);
       publish(auditId, { type: 'check:completed', auditId, result: r });
+    }
+
+    // First visual run for this owner + URL becomes the approved baseline automatically (like Percy)
+    const visual = results.find((r) => r.checkId === 'visual');
+    if (key?.ownerHash && !baseline && !aborted && visual && visual.status !== 'error' && visual.status !== 'skipped' && visual.screenshots.length) {
+      await setVisualBaseline(key.ownerHash, key.url, auditId).catch((err) => console.error('Could not save visual baseline:', err));
     }
 
     const finishedAt = new Date();

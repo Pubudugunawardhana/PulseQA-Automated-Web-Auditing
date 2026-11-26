@@ -65,9 +65,11 @@ export async function newAuditContext(
   options: BrowserContextOptions = {},
   { profile = 'desktop', allowPrivateHosts = true }: AuditContextOptions = {},
 ): Promise<BrowserContext> {
+  // Our realistic UA strings are Chrome's — Firefox/WebKit keep their own (otherwise sites serve Chrome-only code)
+  const isChromium = browser.browserType().name() === 'chromium';
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
-    userAgent: userAgentFor(browser, profile),
+    ...(isChromium ? { userAgent: userAgentFor(browser, profile) } : {}),
     locale: 'en-US',
     ...options,
   });

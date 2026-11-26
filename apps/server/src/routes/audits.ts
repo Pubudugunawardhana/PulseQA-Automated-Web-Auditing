@@ -16,6 +16,8 @@ import {
   getAuditOwner,
   getPreviousAudit,
   getUrlHistory,
+  getVisualBaseline,
+  setVisualBaseline,
   listAudits,
 } from '../audit/repository.js';
 import { scheduleAudit } from '../audit/runner.js';
@@ -88,7 +90,23 @@ auditsRouter.get('/:id', async (req, res) => {
   if (!uuid.safeParse(req.params.id).success) return res.status(404).json({ error: 'Audit not found' });
   const [audit, owner] = await Promise.all([getAuditDetail(req.params.id), getAuditOwner(req.params.id)]);
   if (!audit) return res.status(404).json({ error: 'Audit not found' });
-  res.json({ ...audit, isOwner: owner === req.ownerHash });
+  const isOwner = owner === req.ownerHash;
+  // Baselines are per browser — only the owner learns which run is theirs
+  const visualBaseline = isOwner && audit.checks.includes('visual') ? await getVisualBaseline(req.ownerHash, audit.url) : null;
+  res.json({ ...audit, isOwner, visualBaseline, isVisualBaseline: visualBaseline?.auditId === audit.id });
+});
+
+/** Approve this run's visual screenshots as the baseline future runs of the URL are compared with. Owner only. */
+auditsRouter.post('/:id/baseline', async (req, res) => {
+  const id = String(req.params.id);
+  if (!uuid.safeParse(id).success) return res.status(404).json({ error: 'Audit not found' });
+  const [audit, owner] = await Promise.all([getAuditDetail(id), getAuditOwner(id)]);
+  if (!audit) return res.status(404).json({ error: 'Audit not found' });
+  if (owner !== req.ownerHash) return res.status(403).json({ error: 'Only the person who ran this audit can approve it as a baseline' });
+  const visual = audit.results.find((r) => r.checkId === 'visual');
+  if (audit.status !== 'completed' || !visual || visual.status === 'error' || visual.status === 'skipped' || visual.screenshots.length === 0)
+    return res.status(409).json({ error: 'This audit has no visual screenshots to use as a baseline' });
+  res.json(await setVisualBaseline(req.ownerHash, audit.url, id));
 });
 
 /** Previous completed run of the same URL by the same owner (compare view). Owner only; 204 when none. */

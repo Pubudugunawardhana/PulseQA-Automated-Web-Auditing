@@ -74,12 +74,8 @@ export const smokeCheck: Check = {
       if (state === 'pass') state = 'warn';
     }
 
-    // Informational hygiene / SEO notes — never change the status
-    if (!body.metaDescription) notes.push('No <meta name="description"> (search engines will pick a snippet themselves)');
+    // Informational hygiene note — never changes the status (title/description/lang/h1 live in the SEO check)
     if (!hasFavicon) notes.push('No favicon found (<link rel="icon"> or /favicon.ico)');
-    if (!body.lang) notes.push('<html> has no lang attribute');
-    if (body.h1Count === 0) notes.push('No <h1> heading on the page');
-    else if (body.h1Count > 1) notes.push(`${body.h1Count} <h1> headings (one main heading is recommended)`);
 
     const { hasFaviconLink: _ignored, ...bodyInfo } = body;
     return outcome(

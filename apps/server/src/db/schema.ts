@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const audits = pgTable(
   'audits',
@@ -59,6 +59,20 @@ export const auditArtifacts = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('audit_artifacts_audit_id_idx').on(t.auditId)],
+);
+
+/** The approved visual-regression baseline per browser (owner) and URL — new runs are diffed against it. */
+export const visualBaselines = pgTable(
+  'visual_baselines',
+  {
+    ownerHash: text('owner_hash').notNull(),
+    url: text('url').notNull(),
+    auditId: uuid('audit_id')
+      .notNull()
+      .references(() => audits.id, { onDelete: 'cascade' }),
+    approvedAt: timestamp('approved_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerHash, t.url] }), index('visual_baselines_audit_id_idx').on(t.auditId)],
 );
 
 export type AuditRow = typeof audits.$inferSelect;

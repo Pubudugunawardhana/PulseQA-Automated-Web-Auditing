@@ -8,12 +8,17 @@ import {
   countBySeverity,
   type AccessibilityDetails,
   type AccessibilitySummary,
+  type CrossBrowserDetails,
+  type SeoDetails,
+  type VisualDetails,
+  type VisualSummary,
   type CheckResult,
   type ConsoleNetworkSummary,
   type PerformanceSummary,
   type SmokeDetails,
 } from '@pulseqa/shared';
 import { closeBrowser } from '../src/audit/browser.js';
+import { VISUAL_THRESHOLDS } from '../src/audit/checks/visual.js';
 import { runAuditEngine } from '../src/audit/engine.js';
 import { startFixtureServer } from './fixtureServer.js';
 
@@ -43,7 +48,7 @@ describe('audit engine (integration)', () => {
     });
     const r = byId(results);
     expect(aborted).toBeNull();
-    expect(results).toHaveLength(7);
+    expect(results).toHaveLength(CHECK_IDS.length);
     for (const res of results) {
       expect(res.status, `${res.checkId}: ${res.error}`).not.toBe('error');
       expect(res.startedAt).toBeTruthy();
@@ -52,8 +57,7 @@ describe('audit engine (integration)', () => {
     expect(r.smoke.summary.httpStatus).toBe(200);
     expect(r.smoke.status).toBe('warn'); // no viewport meta
     const smoke = r.smoke.details as unknown as SmokeDetails;
-    expect(smoke.notes?.join(' ')).toMatch(/meta name="description"/);
-    expect(smoke.notes?.join(' ')).toMatch(/lang/);
+    expect(smoke.notes?.join(' ')).toMatch(/favicon/);
 
     expect(r.links.status).toBe('fail');
     expect(r.links.summary.brokenLinks).toBe(1);
@@ -91,6 +95,17 @@ describe('audit engine (integration)', () => {
     expect(r.security.status).toBe('fail'); // not https
     expect(r.security.summary.https).toBe(false);
 
+    // SEO: noindex + no description/lang/canonical
+    const seo = r.seo.details as unknown as SeoDetails;
+    const rule = (id: string) => seo.rules.find((x) => x.id === id)?.status;
+    expect(r.seo.status).toBe('fail');
+    expect(rule('robotsMeta')).toBe('fail');
+    expect(rule('description')).toBe('warn');
+    expect(rule('lang')).toBe('warn');
+    expect(rule('robotsTxt')).toBe('pass');
+    expect(rule('sitemap')).toBe('pass');
+    expect(seo.sitemap?.urls).toBe(1);
+
     // Overview: the same results become a severity-ranked issue list
     const issues = classifyIssues(results);
     const titles = issues.filter((i) => i.severity === 'error').map((i) => i.title);
@@ -111,7 +126,7 @@ describe('audit engine (integration)', () => {
     const { results } = await runAuditEngine({
       auditId: 'good',
       url: `${server.baseUrl}/good.html`,
-      checks: ['smoke', 'links', 'consoleNetwork', 'responsive', 'accessibility'],
+      checks: ['smoke', 'links', 'consoleNetwork', 'responsive', 'accessibility', 'seo'],
       artifactsDir,
     });
     const r = byId(results);
@@ -121,8 +136,48 @@ describe('audit engine (integration)', () => {
     expect(r.responsive.status).toBe('pass');
     expect(r.accessibility.status).toBe('pass');
     expect(r.accessibility.screenshots).toHaveLength(0); // nothing to highlight
+    const seo = r.seo.details as unknown as SeoDetails;
+    expect(r.seo.status, JSON.stringify(seo.rules.filter((x) => x.status !== 'pass'))).toBe('pass');
+    expect(seo.jsonLdTypes).toContain('WebPage');
     expect(countBySeverity(classifyIssues(results)).error).toBe(0);
   }, 180_000);
+
+  it('visual regression: first run becomes the baseline, then changes are diffed against it', async () => {
+    const run = (auditId: string, v: number, baseline: { auditId: string; approvedAt: string } | null) =>
+      runAuditEngine({ auditId, url: `${server.baseUrl}/visual.html?v=${v}`, checks: ['visual'], artifactsDir, baseline }).then((x) => x.results[0]);
+    const approved = { auditId: 'vis-base', approvedAt: new Date().toISOString() };
+
+    const first = await run('vis-base', 1, null);
+    expect(first.status).toBe('pass');
+    expect((first.summary as unknown as VisualSummary).baselineCreated).toBe(true);
+    await fs.access(path.join(artifactsDir, 'vis-base', 'visual-desktop.png'));
+
+    const same = await run('vis-same', 1, approved);
+    const sameD = same.details as unknown as VisualDetails;
+    expect(same.status).toBe('pass');
+    expect(sameD.viewports.every((v) => v.diffPercent === 0)).toBe(true);
+
+    const changed = await run('vis-changed', 2, approved);
+    const d = changed.details as unknown as VisualDetails;
+    expect(['warn', 'fail']).toContain(changed.status);
+    expect(d.viewports[0].diffPercent).toBeGreaterThan(VISUAL_THRESHOLDS.warn);
+    expect(d.viewports[0].baseline).toMatch(/vis-base\/visual-desktop\.png$/);
+    await fs.access(path.join(artifactsDir, 'vis-changed', 'visual-diff-desktop.png'));
+    expect(classifyIssues([changed]).some((i) => i.checkId === 'visual')).toBe(true);
+  }, 120_000);
+
+  it('cross-browser: reports an error that only happens in Firefox', async () => {
+    const { results } = await runAuditEngine({ auditId: 'xb', url: `${server.baseUrl}/xb.html`, checks: ['crossBrowser'], artifactsDir });
+    const r = results[0];
+    const d = r.details as unknown as CrossBrowserDetails;
+    expect(d.runs.map((x) => x.browser)).toEqual(['chromium', 'firefox', 'webkit']);
+    expect(d.runs.every((x) => x.loaded), JSON.stringify(d.runs.map((x) => x.error))).toBe(true);
+    expect(r.status).toBe('warn');
+    expect(d.browserOnlyErrors).toEqual([expect.objectContaining({ browsers: ['firefox'] })]);
+    expect(d.browserOnlyErrors[0].message).toMatch(/firefox-only failure/);
+    expect(r.screenshots).toHaveLength(3);
+    expect(classifyIssues(results).some((i) => i.checkId === 'crossBrowser' && i.severity === 'warning')).toBe(true);
+  }, 150_000);
 
   it('treats errors from another site as third-party (warn, not fail)', async () => {
     const { results } = await runAuditEngine({

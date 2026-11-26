@@ -19,6 +19,8 @@ const repo = vi.hoisted(() => ({
   deleteAudit: vi.fn(),
   findOverflowAudits: vi.fn(async (): Promise<string[]> => []),
   deleteAudits: vi.fn(async (ids: string[]) => ids),
+  getVisualBaseline: vi.fn(async () => null),
+  setVisualBaseline: vi.fn(async (_o: string, _u: string, auditId: string) => ({ auditId, approvedAt: new Date().toISOString() })),
   failInterruptedAudits: vi.fn(),
 }));
 const runner = vi.hoisted(() => ({ scheduleAudit: vi.fn() }));
@@ -167,6 +169,39 @@ describe('history limit', () => {
   it('tells the UI how many audits are kept', async () => {
     repo.listAudits.mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
     expect((await request(app).get('/api/audits').set('Cookie', asAlice).expect(200)).body.historyLimit).toBe(10);
+  });
+});
+
+describe('visual baseline', () => {
+  const withVisual = (screenshots: { label: string; url: string }[]) => ({
+    ...audit({ status: 'completed', checks: ['visual'] }),
+    results: [{ checkId: 'visual', status: 'pass', durationMs: 1, summary: {}, details: {}, error: null, screenshots }],
+  });
+
+  it('only the owner can approve a run as the baseline', async () => {
+    repo.getAuditDetail.mockResolvedValue(withVisual([{ label: 'desktop', url: '/a.png' }]));
+    repo.getAuditOwner.mockResolvedValue(ALICE_HASH);
+    await request(app).post(`/api/audits/${ID}/baseline`).set('Cookie', asBob).expect(403);
+    expect(repo.setVisualBaseline).not.toHaveBeenCalled();
+    const res = await request(app).post(`/api/audits/${ID}/baseline`).set('Cookie', asAlice).expect(200);
+    expect(res.body.auditId).toBe(ID);
+    expect(repo.setVisualBaseline).toHaveBeenCalledWith(ALICE_HASH, 'https://example.com/', ID);
+  });
+
+  it('refuses audits without visual screenshots', async () => {
+    repo.getAuditDetail.mockResolvedValue(withVisual([]));
+    repo.getAuditOwner.mockResolvedValue(ALICE_HASH);
+    await request(app).post(`/api/audits/${ID}/baseline`).set('Cookie', asAlice).expect(409);
+  });
+
+  it('tells only the owner which run is the baseline', async () => {
+    repo.getAuditDetail.mockResolvedValue(withVisual([{ label: 'desktop', url: '/a.png' }]));
+    repo.getAuditOwner.mockResolvedValue(ALICE_HASH);
+    repo.getVisualBaseline.mockResolvedValue({ auditId: ID, approvedAt: new Date().toISOString() } as never);
+    expect((await request(app).get(`/api/audits/${ID}`).set('Cookie', asAlice).expect(200)).body.isVisualBaseline).toBe(true);
+    const other = (await request(app).get(`/api/audits/${ID}`).set('Cookie', asBob).expect(200)).body;
+    expect(other.visualBaseline).toBeNull();
+    expect(other.isVisualBaseline).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, ilike, inArray, isNull, lt, or } from 'drizzle-orm';
 import { ACTIVE_STATUSES, type AuditDetailDTO, type AuditDTO, type AuditHistoryPoint, type CheckId, type CheckResult } from '@pulseqa/shared';
 import { db } from '../db/client.js';
-import { auditArtifacts, auditChecks, audits, type AuditRow } from '../db/schema.js';
+import { auditArtifacts, auditChecks, audits, visualBaselines, type AuditRow } from '../db/schema.js';
 
 export function toAuditDTO(row: AuditRow): AuditDTO {
   return {
@@ -46,7 +46,15 @@ export async function listAudits(ownerHash: string, page: number, limit: number,
     db.select().from(audits).where(where).orderBy(desc(audits.createdAt)).limit(limit).offset((page - 1) * limit),
     db.select({ total: count() }).from(audits).where(where),
   ]);
-  return { items: rows.map(toAuditDTO), total, page, limit };
+  const ids = rows.map((r) => r.id);
+  const baselines = ids.length
+    ? new Set(
+        (await db.select({ id: visualBaselines.auditId }).from(visualBaselines).where(and(eq(visualBaselines.ownerHash, ownerHash), inArray(visualBaselines.auditId, ids)))).map(
+          (b) => b.id,
+        ),
+      )
+    : new Set<string>();
+  return { items: rows.map((r) => ({ ...toAuditDTO(r), isVisualBaseline: baselines.has(r.id) })), total, page, limit };
 }
 
 async function detailFromRow(row: AuditRow): Promise<AuditDetailDTO> {
@@ -178,7 +186,38 @@ export async function findOverflowAudits(ownerHash: string, keep: number): Promi
     .where(eq(audits.ownerHash, ownerHash))
     .orderBy(desc(audits.createdAt))
     .offset(keep);
-  return rows.filter((r) => !(ACTIVE_STATUSES as readonly string[]).includes(r.status)).map((r) => r.id);
+  if (rows.length === 0) return [];
+  // never prune an approved visual baseline — new runs still need its screenshots
+  const pinned = new Set(
+    (await db.select({ id: visualBaselines.auditId }).from(visualBaselines).where(eq(visualBaselines.ownerHash, ownerHash))).map((r) => r.id),
+  );
+  return rows.filter((r) => !(ACTIVE_STATUSES as readonly string[]).includes(r.status) && !pinned.has(r.id)).map((r) => r.id);
+}
+
+/** The approved visual-regression baseline for this browser (owner) and URL. */
+export async function getVisualBaseline(ownerHash: string | null, url: string): Promise<{ auditId: string; approvedAt: string } | null> {
+  if (!ownerHash) return null;
+  const [row] = await db
+    .select()
+    .from(visualBaselines)
+    .where(and(eq(visualBaselines.ownerHash, ownerHash), eq(visualBaselines.url, url)));
+  return row ? { auditId: row.auditId, approvedAt: row.approvedAt.toISOString() } : null;
+}
+
+/** Approve an audit as the visual baseline for its owner + URL (replaces the previous one). */
+export async function setVisualBaseline(ownerHash: string, url: string, auditId: string): Promise<{ auditId: string; approvedAt: string }> {
+  const approvedAt = new Date();
+  await db
+    .insert(visualBaselines)
+    .values({ ownerHash, url, auditId, approvedAt })
+    .onConflictDoUpdate({ target: [visualBaselines.ownerHash, visualBaselines.url], set: { auditId, approvedAt } });
+  return { auditId, approvedAt: approvedAt.toISOString() };
+}
+
+/** Owner + URL of an audit (for baseline lookups). */
+export async function getAuditKey(id: string): Promise<{ ownerHash: string | null; url: string } | null> {
+  const [row] = await db.select({ ownerHash: audits.ownerHash, url: audits.url }).from(audits).where(eq(audits.id, id));
+  return row ?? null;
 }
 
 export async function deleteAudits(ids: string[]): Promise<string[]> {
