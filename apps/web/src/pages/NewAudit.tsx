@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, Check, Clock, Globe, Loader2 } from 'lucide-react';
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CHECK_IDS, CHECK_META, type CheckId } from '@pulseqa/shared';
 import { CHECK_ICON } from '../components/checkIcons';
 import { Button, Card } from '../components/ui';
@@ -40,7 +40,8 @@ function looksLikeUrl(v: string) {
 
 export function NewAudit() {
   const navigate = useNavigate();
-  const [url, setUrl] = useState('');
+  const [params] = useSearchParams();
+  const [url, setUrl] = useState(() => params.get('url') ?? ''); // prefilled from the landing page
   const [checks, setChecks] = useState<Set<CheckId>>(new Set(CHECK_IDS));
   const [error, setError] = useState<string | null>(null);
   const [history] = useState<string[]>(loadHistory);

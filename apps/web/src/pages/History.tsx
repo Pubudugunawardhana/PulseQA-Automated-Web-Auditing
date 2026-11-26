@@ -96,7 +96,7 @@ export function History() {
             />
             {isFetching && !isLoading && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-faint" />}
           </label>
-          <Link to="/">
+          <Link to="/new">
             <Button variant="primary" className="h-10">
               <Plus className="size-4" /> <span className="hidden sm:inline">New audit</span>
             </Button>
@@ -119,7 +119,7 @@ export function History() {
           ) : (
             <>
               No audits yet.{' '}
-              <Link to="/" className="font-medium text-brand-strong hover:underline">
+              <Link to="/new" className="font-medium text-brand-strong hover:underline">
                 Run your first one
               </Link>
             </>

@@ -63,11 +63,16 @@ Every web app needs the same baseline quality checks before release — is it up
 | ⛔ **Cancel & time limits** | Cancel any running audit; hard 4-minute ceiling per audit; per-check timeouts |
 | 🔒 **Private by default** | No login needed — each browser only sees its own latest 10 audits (anonymous, hashed owner ID; older runs auto-pruned) |
 | 🛡️ **Safe to host publicly** | SSRF guard on every navigation, redirect and link probe; rate limiting; duplicate-run protection |
+| 🚀 **Landing page** | Product landing page at `/` with a one-click *Run free audit* box (advanced options at `/new`) |
 | 🌗 **Light / dark UI** | Clean dashboard with a live terminal panel, mobile-friendly |
 
 ---
 
 ## 📸 Screenshots
+
+### Landing page
+
+<img src="docs/screenshots/landing.png" alt="PulseQA landing page with a one-click audit box" />
 
 | Start an audit | Live progress |
 |---|---|

@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import './index.css';
 import { AuditDetail } from './pages/AuditDetail';
 import { History } from './pages/History';
+import { Landing } from './pages/Landing';
 import { NewAudit } from './pages/NewAudit';
 
 // Apply saved / system theme before first paint
@@ -28,7 +29,8 @@ const router = createBrowserRouter([
   {
     element: <Layout />,
     children: [
-      { path: '/', element: <NewAudit /> },
+      { path: '/', element: <Landing /> },
+      { path: '/new', element: <NewAudit /> },
       { path: '/audits', element: <History /> },
       { path: '/audits/:id', element: <AuditDetail /> },
     ],
