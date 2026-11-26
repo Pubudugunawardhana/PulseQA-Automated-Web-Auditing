@@ -11,6 +11,7 @@ export const CHECK_IDS = [
   'seo',
   'visual',
   'crossBrowser',
+  'crawl',
 ] as const;
 
 export type CheckId = (typeof CHECK_IDS)[number];
@@ -26,6 +27,7 @@ export const CHECK_META: Record<CheckId, { name: string; description: string; we
   seo: { name: 'SEO', description: 'Title, description, canonical, Open Graph, robots.txt and sitemap', weight: 1 },
   visual: { name: 'Visual Regression', description: 'Pixel-diff against your approved baseline screenshots', weight: 1 },
   crossBrowser: { name: 'Cross-browser', description: 'Chromium, Firefox and WebKit (Safari) side by side', weight: 2 },
+  crawl: { name: 'Site Crawl', description: 'Follows internal links and checks up to 20 pages of the site', weight: 2 },
 };
 
 export type CheckStatus = 'pending' | 'running' | 'pass' | 'warn' | 'fail' | 'error' | 'skipped';
@@ -76,6 +78,8 @@ export interface AuditDetailDTO extends AuditDTO {
   isOwner?: boolean;
   /** Owner only: the approved visual baseline for this URL, and whether this audit is it. */
   visualBaseline?: { auditId: string; approvedAt: string } | null;
+  /** Recording of the main browser session (load, checks, auto-scroll), if one was saved. */
+  video?: string | null;
 }
 
 /** One earlier completed run of the same URL (summaries only), used for trends and "compare to". */

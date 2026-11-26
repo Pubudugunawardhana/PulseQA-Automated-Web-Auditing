@@ -212,6 +212,27 @@ export const VISUAL_FIXES = {
   missingBaseline: { tip: 'The baseline screenshots are gone (the baseline audit was deleted). Approve this run as the new baseline.' },
 } satisfies Record<string, Fix>;
 
+export const CRAWL_FIXES = {
+  broken: {
+    tip: 'These pages are linked from your site but return an error (4xx/5xx) or don’t load. Fix the page, or update/remove the links pointing to it and add a 301 redirect from the old URL.',
+  },
+  slow: {
+    tip: 'These pages took more than 3 s to load. Open them in the Performance check (audit the URL directly) to see the slowest resources; common fixes are image compression, caching and less JavaScript.',
+  },
+  jsErrors: { tip: 'JavaScript errors happen on these pages. Audit each URL on its own to see the full error and stack trace in the Console & Network report.' },
+  brokenImages: { tip: 'Images on these pages fail to load. Check the paths and that the files were deployed.' },
+  a11y: { tip: 'These pages have critical or serious accessibility violations. Audit each URL on its own for the full axe-core report with highlighted elements.' },
+  duplicateTitles: {
+    tip: 'Several pages share the same <title>. Give every page a unique title so search results (and browser tabs) can tell them apart.',
+    docs: 'https://developers.google.com/search/docs/appearance/title-link',
+  },
+  missingTitles: { tip: 'Some pages have no <title>. Add a unique, descriptive title to each.' },
+  missingDescriptions: { tip: 'Some pages have no meta description. Add a 70–160 character summary to each important page.' },
+  notCrawled: {
+    tip: 'Only the first pages were checked. Audit the most important sections (e.g. /blog, /shop) directly, or raise CRAWL_MAX_PAGES on the server.',
+  },
+} satisfies Record<string, Fix>;
+
 export const CROSS_BROWSER_FIXES = {
   failsToLoad: {
     tip: 'The page loads in Chrome but not in this browser. Open it there (Firefox, or Safari/WebKit) and check the console; common causes are unsupported JavaScript syntax or APIs, or a server that rejects the browser’s requests.',

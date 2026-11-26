@@ -13,10 +13,14 @@ export const CHECK_FLAG: Record<CheckId, string> = {
   seo: 'seo',
   visual: 'visual',
   crossBrowser: 'browsers',
+  crawl: 'crawl',
 };
 
 /** Same order the server runs them in, so the log reads top-to-bottom. */
-export const EXECUTION_ORDER: CheckId[] = ['smoke', 'consoleNetwork', 'security', 'seo', 'performance', 'links', 'accessibility', 'responsive', 'visual', 'crossBrowser'];
+export const EXECUTION_ORDER: CheckId[] = ['smoke', 'security', 'seo', 'performance', 'consoleNetwork', 'links', 'accessibility', 'responsive', 'visual', 'crossBrowser', 'crawl'];
+
+/** The server auto-scrolls the page (lazy content) right before the first of these runs. */
+export const AFTER_SCROLL: CheckId[] = ['consoleNetwork', 'links', 'accessibility', 'responsive', 'visual', 'crossBrowser', 'crawl'];
 
 /** Typed view of a result's summary/details for a given check. */
 export function shape<K extends CheckId>(r: CheckResult, _id: K): CheckShapes[K] {
@@ -67,6 +71,10 @@ export function headline(r: CheckResult): string {
       const { summary: s, details: d } = shape(r, 'visual');
       if (s.baselineCreated) return 'first run — saved as the visual baseline';
       return d.viewports.map((v) => `${v.label} ${v.diffPercent === null ? '—' : `${v.diffPercent}%`}`).join(' · ') + ' changed';
+    }
+    case 'crawl': {
+      const { summary: s } = shape(r, 'crawl');
+      return `${s.pagesCrawled} pages · ${s.broken} broken · ${s.slow} slow · ${s.withJsErrors} with JS errors${s.partial ? ' · partial' : ''}`;
     }
     case 'crossBrowser': {
       const { summary: s } = shape(r, 'crossBrowser');

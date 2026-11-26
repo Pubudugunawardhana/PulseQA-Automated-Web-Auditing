@@ -3,6 +3,18 @@
 export type Rating = 'pass' | 'warn' | 'fail' | 'unknown';
 export type Party = 'first' | 'third';
 
+/** Result of auto-scrolling the page to load lazy content before the DOM checks ran. */
+export interface PageScan {
+  scrolledPx: number;
+  pageHeight: number;
+  steps: number;
+  durationMs: number;
+  /** Stopped at the px/time cap (e.g. an infinite feed). */
+  capped: boolean;
+  /** Images that finished loading only because of the scroll. */
+  lazyImagesLoaded: number;
+}
+
 // ---------- smoke ----------
 export interface SmokeSummary {
   httpStatus?: number;
@@ -44,6 +56,7 @@ export interface LinksSummary {
   brokenLinks: number;
   brokenImages: number;
   restricted: number;
+  pageScan?: PageScan | null;
 }
 export interface LinksDetails {
   brokenLinks: LinkProbe[];
@@ -83,6 +96,7 @@ export interface ConsoleNetworkSummary {
   otherFailedRequests: number;
   /** Errors/failures that come from third-party origins (ads, analytics, widgets). */
   thirdPartyIssues?: number;
+  pageScan?: PageScan | null;
 }
 export interface ConsoleNetworkDetails {
   site?: string;
@@ -301,6 +315,46 @@ export interface CrossBrowserDetails {
   viewport: string;
 }
 
+// ---------- site crawl ----------
+export interface CrawlPage {
+  url: string;
+  finalUrl: string | null;
+  depth: number;
+  status: number | null;
+  loaded: boolean;
+  loadMs: number | null;
+  title: string | null;
+  description: string | null;
+  h1Count: number;
+  jsErrors: number;
+  firstJsError?: string;
+  failedRequests: number;
+  brokenImages: number;
+  /** Critical + serious axe violations (null if the scan didn't run). */
+  a11yIssues: number | null;
+  linksFound: number;
+  error?: string;
+}
+export interface CrawlSummary {
+  pagesCrawled: number;
+  broken: number;
+  slow: number;
+  withJsErrors: number;
+  withA11yIssues: number;
+  avgLoadMs: number | null;
+  /** Internal pages found but not visited because of the page cap. */
+  notCrawled: number;
+  /** Stopped early (time budget / cancel) — results cover the pages done so far. */
+  partial: boolean;
+}
+export interface CrawlDetails {
+  pages: CrawlPage[];
+  duplicateTitles: { title: string; urls: string[] }[];
+  duplicateDescriptions: { description: string; urls: string[] }[];
+  skippedByRobots: number;
+  limits: { maxPages: number; maxDepth: number; slowMs: number };
+}
+
 /** Maps a check id to its summary/details types. */
 export interface CheckShapes {
   smoke: { summary: SmokeSummary; details: SmokeDetails };
@@ -313,4 +367,5 @@ export interface CheckShapes {
   seo: { summary: SeoSummary; details: SeoDetails };
   visual: { summary: VisualSummary; details: VisualDetails };
   crossBrowser: { summary: CrossBrowserSummary; details: CrossBrowserDetails };
+  crawl: { summary: CrawlSummary; details: CrawlDetails };
 }
