@@ -1,6 +1,6 @@
 # Fly.io config for PulseQA (API + dashboard in one Machine).
 # Change `app` to a unique name before the first deploy (or let `fly launch --no-deploy` pick one).
-app = "pulseqa-audits"
+app = "pulseqa"
 primary_region = "sin" # Singapore — closest to Sri Lanka; pick the region nearest your Neon database
 
 [build]
