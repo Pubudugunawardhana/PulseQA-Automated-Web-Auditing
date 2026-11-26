@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { cn } from '../lib/format';
 
-const REPO_URL = 'https://github.com/Pubudugunawardhana/PulseQA-_-Automated-Web-Auditing---E2E-Test-Execution-Platform';
+const REPO_URL = 'https://github.com/Pubudugunawardhana/PulseQA-Automated-Web-Auditing';
 
 function useHealth() {
   return useQuery({
