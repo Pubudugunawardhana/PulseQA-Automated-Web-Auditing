@@ -80,21 +80,35 @@ Every web app needs the same baseline quality checks before release — is it up
 
 ## 🔄 How it works — the workflow
 
+An audit goes through five stages: **start → queue → engine → live dashboard → history**. The diagrams below follow one audit through them. GitHub renders Mermaid diagrams.
+
 ### 1. The user journey
+
+There are three ways to start an audit, and they all lead to the same live dashboard:
 
 ```mermaid
 flowchart LR
-    A([🌐 Paste a URL]) --> B[Choose checks<br/>default: all 11]
-    B --> C[▶ Run audit]
-    C --> D{{Live dashboard}}
-    D -->|SSE events| E[Checks finish one by one<br/>+ terminal live log]
-    E --> F[📊 Score 0–100<br/>Pass / Warn / Fail]
-    F --> G[🔎 Open any check's report]
-    F --> O[📊 Overview: gauge, issues by type,<br/>trends, top issues]
-    F --> H[🔁 Compare with any earlier run]
-    F --> I[📄 Export HTML / JSON]
-    F --> J[🔗 Share read-only link]
-    F --> K[🗂 Saved to your history]
+    subgraph Start["① Start an audit"]
+        direction TB
+        A1["🏠 Landing page<br/>Run free audit · all 11 checks"]
+        A2["🧭 Navbar → Checks menu<br/>pick one check, e.g. Performance"]
+        A3["⚙️ New audit page<br/>tick any combination"]
+    end
+
+    Start --> R["▶ Audit queued<br/>redirected to its dashboard"]
+    R --> L["📡 Live: progress bar + terminal log<br/>each check turns Pass / Warn / Fail"]
+    L --> D{{"📊 Finished dashboard"}}
+
+    D --> T1["Overview<br/>score, issues by type, trends"]
+    D --> T2["Issues<br/>filter + how-to-fix for each"]
+    D --> T3["Checks<br/>full report per check"]
+    D --> T4["Screenshots<br/>+ session video"]
+    D --> T5["Log<br/>execution timeline"]
+
+    D --> X1["🔁 Compare with an earlier run"]
+    D --> X2["🖼️ Approve as visual baseline"]
+    D --> X3["📄 Export HTML / JSON · 🔗 Share link"]
+    D --> H[("🗂 History<br/>latest 10 · kept 10 days")]
 ```
 
 ### 2. What happens behind the scenes
@@ -110,54 +124,89 @@ sequenceDiagram
     participant DB as PostgreSQL (Neon)
 
     UI->>API: POST /api/audits { url, checks }
-    API->>API: Validate & normalize URL, rate-limit,<br/>identify browser (owner cookie)
+    API->>API: validate URL + SSRF guard, rate-limit,<br/>identify browser (anonymous owner cookie)
     API->>DB: INSERT audit (status = queued)
     API->>Q: enqueue(audit)
     API-->>UI: 202 Accepted { id }
+    API->>DB: prune this browser's history beyond the latest 10
     UI->>API: GET /api/audits/:id/events (SSE)
     API-->>UI: snapshot
 
+    Q->>DB: look up the approved visual baseline (owner + URL)
     Q->>E: start (max N audits in parallel)
-    E->>B: open context → load page ONCE<br/>(capture console, network, timing)
-    loop for each selected check
-        E-->>API: check:started
-        API-->>UI: event → spinner on that check
-        E->>B: run check (own timeout, can't crash the audit)
+    E->>B: open context with video recording,<br/>load the page ONCE (console, network, timing)
+    loop for each selected check (own timeout each)
+        E-->>UI: check:started → spinner on that check
+        E->>B: run the check (main page or its own context)
         E->>DB: save result + screenshots
-        E-->>API: check:completed
-        API-->>UI: event → card turns Pass / Warn / Fail
+        E-->>UI: check:completed → card turns Pass / Warn / Fail
     end
-    E->>DB: score + overall status (completed)
-    API-->>UI: audit:completed → summary, compare, export
+    E->>DB: save session video, auto-approve the first visual baseline
+    E->>DB: weighted score + overall status (completed)
+    API-->>UI: audit:completed → Overview, Issues, compare, export
+
+    Note over API,DB: Every hour: delete audits older than 10 days<br/>(with their screenshots and videos)
 ```
 
 ### 3. Inside the audit engine
 
+The order matters. Checks that read the page *as it loaded* run first. After that the page is auto-scrolled so lazy content exists, and the checks that open their own pages or browsers run last.
+
 ```mermaid
 flowchart TD
-    S([Audit starts]) --> G{Private hosts<br/>allowed?}
-    G -- no --> R[Walk redirect chain<br/>block private IPs]
-    G -- yes --> L
-    R --> L[Load page once in Chromium<br/>record console · errors · requests]
+    S([Audit starts]) --> G{Public deployment?<br/>ALLOW_PRIVATE_HOSTS=false}
+    G -- yes --> R[Walk the redirect chain,<br/>block private / loopback IPs]
+    G -- no --> L
+    R --> L["Load the page once in Chromium<br/>🎥 session video starts recording"]
     L -->|load failed| X[Smoke = FAIL<br/>other checks = SKIPPED]
-    L -->|loaded| C1[Smoke] --> C3[Security · SEO] --> C4[Performance<br/>+ throttled mobile run]
-    C4 --> AS[[Auto-scroll<br/>load lazy content]] --> C2[Console & Network]
-    C2 --> C5[Links & Images<br/>parallel HTTP probes] --> C6[Accessibility<br/>axe-core + highlight] --> C7[Responsive<br/>3 viewports in parallel]
-    C7 --> C8[Visual regression<br/>diff vs approved baseline] --> C9[Cross-browser<br/>Chromium · Firefox · WebKit]
-    C9 --> CR[Site crawl<br/>up to 20 internal pages] --> SC[Weighted score + overall status]
-    X --> SC
-    SC --> DONE([Saved & streamed to UI])
 
-    CAN[[Cancel button / 4-min limit]] -.->|AbortSignal| C1 & C4 & C5 & C7
+    subgraph Main["Main page — untouched load"]
+        C1[Smoke] --> C2[Security headers] --> C3[SEO<br/>+ robots.txt / sitemap] --> C4[Performance<br/>+ throttled mobile run]
+    end
+    L -->|loaded| C1
+    C4 --> AS[["↓ Auto-scroll<br/>lazy images & sections load"]]
+
+    subgraph Scrolled["Main page — after scroll"]
+        C5[Console & Network] --> C6[Links & Images<br/>parallel HTTP probes] --> C7[Accessibility<br/>desktop + mobile axe-core]
+    end
+    AS --> C5
+    C7 --> V["🎥 video saved"]
+
+    subgraph Own["Own contexts / browsers"]
+        C8[Responsive<br/>3 viewports in parallel] --> C9[Visual regression<br/>diff vs approved baseline] --> C10[Cross-browser<br/>Firefox + WebKit launched on demand] --> C11[Site crawl<br/>up to 20 internal pages]
+    end
+    V --> C8
+    C11 --> SC[Weighted score + overall status]
+    X --> SC
+    SC --> DONE([Saved & streamed to the UI])
+
+    CAN[["⛔ Cancel button / 7-min limit"]] -.->|AbortSignal| Main & Scrolled & Own
+```
+
+### 4. What happens to the data
+
+```mermaid
+flowchart LR
+    N([New audit]) --> K{More than 10<br/>audits in this browser?}
+    K -- yes --> P1[Oldest finished audits deleted<br/>except the visual baseline]
+    K -- no --> KEEP
+    P1 --> KEEP[Audit stays in History]
+    KEEP --> AGE{Older than 10 days?<br/>checked every hour}
+    AGE -- yes --> DEL[Deleted with its<br/>screenshots + video]
+    AGE -- no --> KEEP
+    KEEP -.->|Approve as baseline| BL[(Visual baseline<br/>for this URL)]
 ```
 
 **Key design decisions**
 
-- **One page load, many checks** – smoke, console/network, security, performance and accessibility all reuse the same loaded page, so most of an audit costs a single navigation.
-- **Auto-scroll for lazy content** – after Performance has measured the untouched load, the page is scrolled to the bottom in steps (capped at 20 000 px / 10 s for infinite feeds) so lazy-loaded images and sections exist before links, accessibility, console and screenshot checks run; the Log tab shows how far it scrolled and how many lazy images appeared.
-- **Failure isolation** – each check runs with its own timeout inside a `Promise.race`; one crashing check becomes `error` while the rest of the audit continues.
-- **One shared browser** – parallel viewports and the mobile performance run are lightweight *contexts* inside a single Chromium process, keeping memory low on small servers.
-- **Cancellable everywhere** – one `AbortSignal` (user cancel + overall timeout) flows through the engine, checks and HTTP probes, and closes browser contexts immediately.
+- **One page load, many checks**: smoke, security, SEO, performance, console, links and accessibility all reuse the same loaded page, so most of an audit costs a single navigation.
+- **Measure first, then scroll**: Performance measures the untouched load. Only then is the page scrolled to the bottom in steps (capped at 20 000 px / 10 s for infinite feeds), so lazy-loaded images and sections are present before the links, accessibility and screenshot checks run.
+- **Failure isolation**: each check runs with its own timeout inside a `Promise.race`. A check that crashes becomes `error` and the rest of the audit continues.
+- **Light on memory**: the responsive viewports, the mobile performance run, visual capture and the crawler are lightweight *contexts* inside one shared Chromium process. Firefox and WebKit are launched only for the cross-browser check and closed straight after.
+- **Short, useful recordings**: the session video covers only the main page (load → checks → auto-scroll). It is finalised as soon as the last main-page check finishes, so it doesn't record idle time.
+- **Approved baselines**: the first visual run of a URL becomes its baseline automatically. After that you approve a new baseline deliberately (Percy-style), so a visual change is never accepted silently.
+- **Cancellable everywhere**: one `AbortSignal` (user cancel + the 7-minute ceiling) flows through the engine, checks, HTTP probes and crawler, and closes browser contexts immediately.
+- **Private and self-cleaning**: no accounts. History belongs to an anonymous, hashed browser ID, keeps the latest 10 audits and deletes anything older than 10 days.
 
 ---
 
@@ -361,22 +410,62 @@ npm test
 
 ## ☁️ Deployment
 
-Simplest option — **one service** serves both the API and the dashboard (so the privacy cookie works without extra setup):
+PulseQA needs a host that can keep **real browsers** running for several minutes. A container platform works for this; serverless functions such as Vercel or Netlify Functions don't. A single container serves both the API and the dashboard, so the privacy cookie works without any extra setup.
+
+### Fly.io (recommended)
+
+The repo includes a [`Dockerfile`](Dockerfile) (based on the official Playwright image with Chromium, Firefox and WebKit) and a [`fly.toml`](fly.toml) (1 GB machine, a volume for screenshots/videos, health check, migrations on every deploy).
+
+```bash
+# 1. Install the CLI and log in  →  https://fly.io/docs/flyctl/install/
+fly auth login
+
+# 2. Create the app from fly.toml (change `app = "..."` to a unique name first)
+fly launch --no-deploy --copy-config
+
+# 3. Volume for screenshots & session videos (same region as primary_region)
+fly volumes create pulseqa_data --region sin --size 1
+
+# 4. Secrets — never commit these
+fly secrets set DATABASE_URL="postgresql://…neon.tech/neondb?sslmode=require"
+fly secrets set CORS_ORIGIN="https://<your-app>.fly.dev"
+
+# 5. Deploy (migrations run automatically via release_command)
+fly deploy
+
+# Logs / status
+fly logs
+fly status
+```
+
+Open `https://<your-app>.fly.dev`. The Machine **stops when idle and starts again on the next request** (`auto_stop_machines`), which keeps it inside Fly's free monthly allowance. The first request after a stop takes a few seconds.
+
+### Any other container host / VPS
+
+```bash
+docker build -t pulseqa .
+docker run -p 8080:8080 -v pulseqa-data:/data \
+  -e DATABASE_URL="postgresql://…" -e CORS_ORIGIN="https://your-domain" pulseqa
+```
+
+Or without Docker:
 
 ```bash
 npm install
-npm run playwright:install   # Chromium + Firefox + WebKit (or use the official Playwright Docker image)
+npm run playwright:install   # Chromium + Firefox + WebKit
 npm run build                # builds apps/web/dist
 npm run db:migrate
 npm start                    # API + dashboard on $PORT
 ```
 
-Production checklist:
+### Production checklist
 
-- [ ] `ALLOW_PRIVATE_HOSTS=false`
-- [ ] `DATABASE_URL` points to your Neon (or other Postgres) database
-- [ ] Persistent disk (or object storage) for `ARTIFACTS_DIR`
-- [ ] A host that can run Chromium (e.g. Render, Railway, Fly.io, a VPS — not serverless functions)
+- [ ] `ALLOW_PRIVATE_HOSTS=false` (already set in the Dockerfile and fly.toml)
+- [ ] `DATABASE_URL` set as a **secret** that points to your Neon (or other Postgres) database
+- [ ] A persistent volume for `ARTIFACTS_DIR` (`/data/artifacts` in the container)
+- [ ] At least **1 GB RAM**, with `MAX_CONCURRENT_AUDITS=1` on small machines
+- [ ] HTTPS only (`force_https` on Fly.io)
+- [ ] See [SECURITY.md](SECURITY.md) for the full hardening list
 
 ---
 

@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/artifacts
+.env
+.env.*
+!.env.example
+.git
+.github
+.vscode
+*.log
+docs/screenshots
