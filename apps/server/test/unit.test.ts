@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { computeOverall, computeScore } from '@pulseqa/shared';
 import { rateMetric } from '../src/audit/checks/performance.js';
+import { DESCRIPTION_RANGE, rateLength, TITLE_RANGE } from '../src/audit/checks/seo.js';
+import { rateDiff } from '../src/audit/checks/visual.js';
+import { parseRobots } from '../src/lib/safeFetch.js';
 import { firstUrlIn, siteOf, siteOfUrl } from '../src/lib/site.js';
 import { isPrivateIp, normalizeAuditUrl, UrlValidationError } from '../src/lib/urlGuard.js';
 
@@ -63,5 +66,30 @@ describe('performance thresholds', () => {
     expect(rateMetric('fcp', 2500)).toBe('warn');
     expect(rateMetric('lcp', 5000)).toBe('fail');
     expect(rateMetric('cls', null)).toBe('unknown');
+  });
+});
+
+describe('seo helpers', () => {
+  it('rates title / description length', () => {
+    expect(rateLength(null, TITLE_RANGE)).toBe('fail');
+    expect(rateLength('Short', TITLE_RANGE)).toBe('warn');
+    expect(rateLength('A descriptive page title of a good length', TITLE_RANGE)).toBe('pass');
+    expect(rateLength('x'.repeat(200), DESCRIPTION_RANGE)).toBe('warn');
+  });
+
+  it('parses robots.txt groups and sitemaps', () => {
+    expect(parseRobots('User-agent: *\nDisallow: /\n')).toEqual({ blocksAll: true, sitemaps: [] });
+    expect(parseRobots('User-agent: Googlebot\nDisallow: /\n\nUser-agent: *\nDisallow: /admin\nSitemap: https://x.com/s.xml').blocksAll).toBe(false);
+    expect(parseRobots('User-agent: *\nDisallow:\n# comment\nSitemap: https://x.com/a.xml\nSitemap: https://x.com/b.xml').sitemaps).toHaveLength(2);
+  });
+});
+
+describe('visual regression helpers', () => {
+  it('rates pixel differences against the thresholds', () => {
+    expect(rateDiff(null, null)).toBe('pass');
+    expect(rateDiff(0.1, 0)).toBe('pass');
+    expect(rateDiff(3, 0)).toBe('warn');
+    expect(rateDiff(20, 0)).toBe('fail');
+    expect(rateDiff(1, 40)).toBe('fail'); // page height changed a lot
   });
 });

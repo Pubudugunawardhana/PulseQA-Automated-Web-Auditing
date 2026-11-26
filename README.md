@@ -14,7 +14,7 @@ Paste any URL → get a full quality report in seconds.<br/>
 ![Playwright](https://img.shields.io/badge/Playwright-Chromium-2EAD33?logo=playwright&logoColor=white)
 ![axe-core](https://img.shields.io/badge/axe--core-WCAG%202.1%20AA-663399)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-31%20passing-success)
+![Tests](https://img.shields.io/badge/tests-39%20passing-success)
 
 <img src="docs/screenshots/dashboard.png" alt="PulseQA audit dashboard: KPI tiles, top issues, check breakdown and score trend" width="900" />
 
@@ -28,7 +28,7 @@ Paste any URL → get a full quality report in seconds.<br/>
 - [Features](#-features)
 - [Screenshots](#-screenshots)
 - [How it works — the workflow](#-how-it-works--the-workflow)
-- [The 7 checks in detail](#-the-7-checks-in-detail)
+- [The 10 checks in detail](#-the-10-checks-in-detail)
 - [Architecture](#-architecture)
 - [Privacy & security model](#-privacy--security-model)
 - [Getting started](#-getting-started)
@@ -52,7 +52,7 @@ Every web app needs the same baseline quality checks before release — is it up
 
 | | |
 |---|---|
-| 🔍 **7 automated checks** | Smoke, links & images, console & network, responsive, accessibility (WCAG 2.1 AA), performance (Core Web Vitals), security headers |
+| 🔍 **10 automated checks** | Smoke, links & images, console & network, responsive, accessibility (WCAG 2.1 AA), performance (Core Web Vitals), security headers, SEO, visual regression, cross-browser |
 | ⚡ **Live progress** | Server-Sent Events stream each check as it finishes, with a terminal-style live log |
 | 📱 **Desktop + mobile** | 3 viewports (1920 · 768 · 375 px) with screenshots; throttled mobile performance profile (4G, 4× CPU); accessibility scanned on desktop **and** mobile |
 | 🎯 **Low-noise results** | First-party vs third-party error split, bot-protection detection, HEAD→GET fallback, clipped-overflow detection |
@@ -82,7 +82,7 @@ Every web app needs the same baseline quality checks before release — is it up
 
 ```mermaid
 flowchart LR
-    A([🌐 Paste a URL]) --> B[Choose checks<br/>default: all 7]
+    A([🌐 Paste a URL]) --> B[Choose checks<br/>default: all 10]
     B --> C[▶ Run audit]
     C --> D{{Live dashboard}}
     D -->|SSE events| E[Checks finish one by one<br/>+ terminal live log]
@@ -104,7 +104,7 @@ sequenceDiagram
     participant API as Express API
     participant Q as Audit queue
     participant E as Audit engine
-    participant B as Chromium (Playwright)
+    participant B as Browsers (Playwright)
     participant DB as PostgreSQL (Neon)
 
     UI->>API: POST /api/audits { url, checks }
@@ -140,7 +140,8 @@ flowchart TD
     L -->|load failed| X[Smoke = FAIL<br/>other checks = SKIPPED]
     L -->|loaded| C1[Smoke] --> C2[Console & Network] --> C3[Security] --> C4[Performance<br/>+ throttled mobile run]
     C4 --> C5[Links & Images<br/>parallel HTTP probes] --> C6[Accessibility<br/>axe-core + highlight] --> C7[Responsive<br/>3 viewports in parallel]
-    C7 --> SC[Weighted score + overall status]
+    C7 --> C8[SEO · Visual regression<br/>diff vs approved baseline] --> C9[Cross-browser<br/>Chromium · Firefox · WebKit]
+    C9 --> SC[Weighted score + overall status]
     X --> SC
     SC --> DONE([Saved & streamed to UI])
 
@@ -149,14 +150,14 @@ flowchart TD
 
 **Key design decisions**
 
-- **One page load, many checks** – smoke, console/network, security, performance and accessibility all reuse the same loaded page, so a full audit costs one navigation instead of seven.
+- **One page load, many checks** – smoke, console/network, security, performance and accessibility all reuse the same loaded page, so most of an audit costs a single navigation.
 - **Failure isolation** – each check runs with its own timeout inside a `Promise.race`; one crashing check becomes `error` while the rest of the audit continues.
 - **One shared browser** – parallel viewports and the mobile performance run are lightweight *contexts* inside a single Chromium process, keeping memory low on small servers.
 - **Cancellable everywhere** – one `AbortSignal` (user cancel + overall timeout) flows through the engine, checks and HTTP probes, and closes browser contexts immediately.
 
 ---
 
-## 🧪 The 7 checks in detail
+## 🧪 The 10 checks in detail
 
 | Check | What it does | Fails when |
 |---|---|---|
@@ -167,6 +168,9 @@ flowchart TD
 | ♿ **Accessibility** | axe-core with WCAG 2.0/2.1 A + AA rules on **desktop (1920×1080) and mobile (375×812, touch, mobile UA)** in parallel; problems that only mobile users hit (e.g. icon-only menu links) are reported separately. Violations grouped by impact, with how-to-fix links and screenshots that **outline the failing elements**. | Any critical or serious violation on either viewport |
 | 🚀 **Performance** | TTFB, FCP, LCP, CLS, load time, request count, transfer size, slowest resources — on desktop **and** a throttled mobile profile (1.6 Mbps, 150 ms RTT, 4× CPU, like Lighthouse). | A desktop metric above the "poor" threshold |
 | 🛡️ **Security Headers** | HTTPS, HTTP→HTTPS redirect, CSP, X-Frame-Options / `frame-ancestors`, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, mixed content, cookie flags, server info leaks. | No HTTPS or mixed content |
+| 🔎 **SEO** | Title & meta description length, canonical URL, `noindex` (meta + `X-Robots-Tag`), `lang`, one `<h1>` and heading order, image `alt`, Open Graph / Twitter card (with a **social share preview**), JSON-LD structured data, `robots.txt` and XML sitemap (fetched with the same SSRF guard). | Missing title, `noindex`, or robots.txt blocking the whole site |
+| 🖼️ **Visual Regression** | Captures desktop (1440×900) and mobile (375×812) screenshots with animations frozen and **pixel-diffs** them (pixelmatch) against the **approved baseline** for that URL — Baseline · Current · Diff view, % of pixels changed, page-height change. The first run becomes the baseline; approve any later run as the new one with one click (Percy-style). The baseline is never pruned. | More than 15 % of pixels changed or the page height changed by more than 25 % (0.5–15 % = warning) |
+| 🧭 **Cross-browser** | Loads the page in **Chromium, Firefox and WebKit (Safari)** — one after another, extra browsers launched only for this check and closed right after — and compares load success, load time, first-party JS/console errors, failed requests, horizontal overflow and screenshots. | Loads in Chrome but not in Firefox/WebKit (browser-only errors or layout differences = warning) |
 
 **Issue severity (Overview):** every finding is grouped into an *issue* and ranked — **errors** (e.g. broken images, first-party exceptions, critical/serious a11y, poor Core Web Vitals, no HTTPS), **warnings** (moderate a11y, missing security headers, broken external links, console errors) and **notices** (minor a11y, SEO notes, bot-protected links, third-party noise).
 
@@ -267,7 +271,7 @@ pulseqa/
 # 1. Install dependencies
 npm install
 
-# 2. Download the Chromium browser used for audits
+# 2. Download the browsers used for audits (Chromium, Firefox, WebKit)
 npm run playwright:install
 
 # 3. Configure environment
@@ -340,7 +344,7 @@ Set in `.env` at the project root (see [`.env.example`](.env.example)).
 npm test
 ```
 
-**31 tests** across three levels:
+**39 tests** across three levels:
 
 - **Unit** – URL validation & SSRF IP ranges, first/third-party site detection, scoring, performance thresholds.
 - **API** – validation, ownership & privacy rules (403s, scoped history, owner-only trends), de-duplication, cancel/delete rules, rate limiting (Supertest, DB mocked).
@@ -354,7 +358,7 @@ Simplest option — **one service** serves both the API and the dashboard (so th
 
 ```bash
 npm install
-npm run playwright:install   # or use the official Playwright Docker image
+npm run playwright:install   # Chromium + Firefox + WebKit (or use the official Playwright Docker image)
 npm run build                # builds apps/web/dist
 npm run db:migrate
 npm start                    # API + dashboard on $PORT
