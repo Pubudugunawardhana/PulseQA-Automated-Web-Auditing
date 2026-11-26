@@ -8,6 +8,9 @@ export const CHECK_IDS = [
   'accessibility',
   'performance',
   'security',
+  'seo',
+  'visual',
+  'crossBrowser',
 ] as const;
 
 export type CheckId = (typeof CHECK_IDS)[number];
@@ -20,6 +23,9 @@ export const CHECK_META: Record<CheckId, { name: string; description: string; we
   accessibility: { name: 'Accessibility (WCAG)', description: 'axe-core WCAG 2.1 A/AA rules', weight: 2 },
   performance: { name: 'Performance', description: 'TTFB, FCP, LCP, CLS and load time', weight: 2 },
   security: { name: 'Security Headers', description: 'HTTPS, CSP, HSTS, X-Frame-Options and more', weight: 1 },
+  seo: { name: 'SEO', description: 'Title, description, canonical, Open Graph, robots.txt and sitemap', weight: 1 },
+  visual: { name: 'Visual Regression', description: 'Pixel-diff against your approved baseline screenshots', weight: 1 },
+  crossBrowser: { name: 'Cross-browser', description: 'Chromium, Firefox and WebKit (Safari) side by side', weight: 2 },
 };
 
 export type CheckStatus = 'pending' | 'running' | 'pass' | 'warn' | 'fail' | 'error' | 'skipped';
@@ -60,12 +66,16 @@ export interface AuditDTO {
   finishedAt: string | null;
   durationMs: number | null;
   error: string | null;
+  /** Owner only: this run is the approved visual-regression baseline for its URL. */
+  isVisualBaseline?: boolean;
 }
 
 export interface AuditDetailDTO extends AuditDTO {
   results: CheckResult[];
   /** True when the requesting browser created this audit (can cancel/delete). Others get a read-only view. */
   isOwner?: boolean;
+  /** Owner only: the approved visual baseline for this URL, and whether this audit is it. */
+  visualBaseline?: { auditId: string; approvedAt: string } | null;
 }
 
 /** One earlier completed run of the same URL (summaries only), used for trends and "compare to". */

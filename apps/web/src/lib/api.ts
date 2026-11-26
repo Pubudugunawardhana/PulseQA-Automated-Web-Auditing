@@ -20,6 +20,8 @@ export const api = {
   getAudit: (id: string) => request<AuditDetailDTO>(`/api/audits/${id}`),
   /** Completed runs of the same URL up to this one, oldest first (empty for non-owners). */
   getHistory: (id: string) => request<AuditHistoryPoint[]>(`/api/audits/${id}/history`),
+  /** Approve this run's visual screenshots as the baseline for its URL (owner only). */
+  approveBaseline: (id: string) => request<{ auditId: string; approvedAt: string }>(`/api/audits/${id}/baseline`, { method: 'POST' }),
   cancelAudit: (id: string) => request<{ ok: true }>(`/api/audits/${id}/cancel`, { method: 'POST' }),
   deleteAudit: (id: string) => request<void>(`/api/audits/${id}`, { method: 'DELETE' }),
 };

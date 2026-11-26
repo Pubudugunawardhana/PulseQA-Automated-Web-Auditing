@@ -1,8 +1,8 @@
 // Turns raw check results into a flat, severity-ranked list of issues, each with a "how to fix" tip
 // (used by the Overview dashboard, run-to-run comparison and the exported report).
-import type { CheckShapes, PerfMetricKey } from './details';
+import type { BrowserName, CheckShapes, PerfMetricKey, SeoRuleId } from './details';
 import type { CheckId, CheckResult } from './index';
-import { FIXES, HEADER_FIXES, HEADER_HOWTO, perfFix, smokeFix, type Fix } from './remediation';
+import { CROSS_BROWSER_FIXES, FIXES, HEADER_FIXES, HEADER_HOWTO, perfFix, SEO_FIXES, smokeFix, VISUAL_FIXES, type Fix } from './remediation';
 
 export type IssueSeverity = 'error' | 'warning' | 'notice';
 
@@ -19,6 +19,31 @@ export interface Issue {
   fix: Fix;
   /** First affected element / URL, to show where the problem is. */
   example?: string;
+}
+
+export const BROWSER_NAME: Record<BrowserName, string> = { chromium: 'Chrome', firefox: 'Firefox', webkit: 'Safari (WebKit)' };
+
+const SEO_TITLES: Record<SeoRuleId, string> = {
+  title: 'Title tag missing or the wrong length',
+  description: 'Meta description missing or the wrong length',
+  canonical: 'No canonical URL',
+  robotsMeta: 'Page is hidden from search engines (noindex)',
+  lang: 'Page language (html lang) not set',
+  h1: 'Not exactly one h1 heading',
+  headingOrder: 'Heading levels are skipped',
+  imageAlt: 'Images without alt text',
+  openGraph: 'Incomplete Open Graph (social sharing) tags',
+  twitterCard: 'No Twitter / X card',
+  structuredData: 'No or invalid structured data (JSON-LD)',
+  robotsTxt: 'robots.txt missing',
+  sitemap: 'XML sitemap missing or invalid',
+};
+
+function seoTitle(id: SeoRuleId, failed: boolean, value: string): string {
+  if (id === 'robotsTxt' && failed) return 'robots.txt blocks the whole site';
+  if (id === 'title' && value === 'missing') return 'Title tag missing';
+  if (id === 'robotsMeta' && !failed) return 'Links on this page are not followed (nofollow)';
+  return SEO_TITLES[id];
 }
 
 export const SEVERITY_ORDER: IssueSeverity[] = ['error', 'warning', 'notice'];
@@ -145,6 +170,63 @@ function issuesOf(r: CheckResult): Issue[] {
       add('notice', 'Cookie without Secure / HttpOnly flags', cookies.map((c) => `cookie: ${c.name}`), FIXES.insecureCookie, {
         example: cookies[0]?.name,
       });
+      break;
+    }
+    case 'seo': {
+      const d = as(r, 'seo').details;
+      for (const rule of d.rules ?? []) {
+        if (rule.status === 'pass' || rule.status === 'unknown') continue;
+        const minor = ['twitterCard', 'structuredData', 'headingOrder'].includes(rule.id);
+        const sev: IssueSeverity = rule.status === 'fail' ? 'error' : minor ? 'notice' : 'warning';
+        add(sev, seoTitle(rule.id, rule.status === 'fail', rule.value), [`seo ${rule.id} ${rule.status}`], SEO_FIXES[rule.id], { example: rule.value });
+      }
+      break;
+    }
+    case 'visual': {
+      const d = as(r, 'visual').details;
+      for (const v of d.viewports ?? []) {
+        if (v.error && v.diffPercent === null) {
+          add('notice', `Visual baseline missing (${v.label})`, [`visual ${v.label} missing`], VISUAL_FIXES.missingBaseline, { example: v.error });
+        } else if (v.status === 'fail' || v.status === 'warn') {
+          const h = v.heightChangePercent ?? 0;
+          add(v.status === 'fail' ? 'error' : 'warning', `Visual change on ${v.label} (${v.diffPercent}% of pixels)`, [`visual ${v.label} changed`], VISUAL_FIXES.changed, {
+            example: `${(v.changedPixels ?? 0).toLocaleString()} pixels changed · page height ${h > 0 ? '+' : ''}${h}%`,
+          });
+        }
+      }
+      break;
+    }
+    case 'crossBrowser': {
+      const d = as(r, 'crossBrowser').details;
+      for (const run of d.runs ?? []) {
+        if (run.browser === 'chromium' || run.loaded) continue;
+        if (/not installed/.test(run.error ?? ''))
+          add('notice', `${BROWSER_NAME[run.browser]} not installed on the server`, [`xb ${run.browser} missing`], CROSS_BROWSER_FIXES.notInstalled, { example: run.error });
+        else
+          add('error', `Page fails to load in ${BROWSER_NAME[run.browser]}`, [`xb ${run.browser} load`], CROSS_BROWSER_FIXES.failsToLoad, {
+            example: run.error ?? `HTTP ${run.httpStatus}`,
+          });
+      }
+      for (const e of d.browserOnlyErrors ?? []) {
+        add(
+          'warning',
+          `JavaScript error only in ${e.browsers.map((b) => BROWSER_NAME[b]).join(', ')}`,
+          [`xb error ${e.browsers.join('+')}: ${e.message.slice(0, 120)}`],
+          CROSS_BROWSER_FIXES.browserOnlyError,
+          { example: e.message },
+        );
+      }
+      const loaded = (d.runs ?? []).filter((x) => x.loaded);
+      const over = loaded.filter((x) => x.horizontalOverflow);
+      if (over.length && over.length < loaded.length) {
+        add(
+          'warning',
+          `Horizontal scrolling only in ${over.map((x) => BROWSER_NAME[x.browser]).join(', ')}`,
+          [`xb layout ${over.map((x) => x.browser).join('+')}`],
+          CROSS_BROWSER_FIXES.layout,
+          { example: over.map((x) => `${BROWSER_NAME[x.browser]}: ${x.overflowPx}px wider than the screen`).join(' · ') },
+        );
+      }
       break;
     }
   }

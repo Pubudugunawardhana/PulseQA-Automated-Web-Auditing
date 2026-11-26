@@ -80,6 +80,25 @@ function findings(r: CheckResult): string {
       const d = shape(r, 'security').details;
       return list('Headers', (d.headers ?? []).map((h) => `${h.ok ? '✓' : '✗'} ${h.header}${h.value ? `: ${h.value.slice(0, 120)}` : ''}`)) + list('Issues', d.issues ?? []);
     }
+    case 'seo': {
+      const d = shape(r, 'seo').details;
+      const mark = { pass: '✓', warn: '!', fail: '✗', unknown: '?' } as const;
+      return list('Rules', d.rules.map((x) => `${mark[x.status]} ${x.label}: ${x.value}`));
+    }
+    case 'visual': {
+      const d = shape(r, 'visual').details;
+      return (
+        list('Viewports', d.viewports.map((v) => `${v.label}: ${v.diffPercent === null ? 'no baseline' : `${v.diffPercent}% of pixels changed`}${v.error ? ` (${v.error})` : ''}`)) +
+        (d.baseline ? `<p class="dim">baseline approved ${esc(new Date(d.baseline.approvedAt).toLocaleString())}</p>` : '<p class="dim">first run — saved as the baseline</p>')
+      );
+    }
+    case 'crossBrowser': {
+      const d = shape(r, 'crossBrowser').details;
+      return (
+        list('Browsers', d.runs.map((x) => `${x.browser}${x.version ? ` ${x.version}` : ''}: ${x.loaded ? `loaded in ${x.loadMs} ms · ${x.jsErrors.length} JS errors${x.horizontalOverflow ? ` · overflow ${x.overflowPx}px` : ''}` : `FAILED — ${x.error ?? x.httpStatus}`}`)) +
+        list('Errors in only some browsers', d.browserOnlyErrors.map((e) => `[${e.browsers.join(', ')}] ${e.message}`))
+      );
+    }
   }
 }
 

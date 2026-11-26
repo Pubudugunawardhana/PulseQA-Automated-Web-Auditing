@@ -10,10 +10,13 @@ export const CHECK_FLAG: Record<CheckId, string> = {
   accessibility: 'a11y',
   performance: 'perf',
   security: 'security',
+  seo: 'seo',
+  visual: 'visual',
+  crossBrowser: 'browsers',
 };
 
 /** Same order the server runs them in, so the log reads top-to-bottom. */
-export const EXECUTION_ORDER: CheckId[] = ['smoke', 'consoleNetwork', 'security', 'performance', 'links', 'accessibility', 'responsive'];
+export const EXECUTION_ORDER: CheckId[] = ['smoke', 'consoleNetwork', 'security', 'seo', 'performance', 'links', 'accessibility', 'responsive', 'visual', 'crossBrowser'];
 
 /** Typed view of a result's summary/details for a given check. */
 export function shape<K extends CheckId>(r: CheckResult, _id: K): CheckShapes[K] {
@@ -55,6 +58,19 @@ export function headline(r: CheckResult): string {
     case 'security': {
       const { summary: s } = shape(r, 'security');
       return `${s.https ? 'https' : 'NO HTTPS'} · ${s.headersPassed ?? 0}/${s.headersTotal ?? 0} headers`;
+    }
+    case 'seo': {
+      const { summary: s } = shape(r, 'seo');
+      return `${s.passed} passed · ${s.warnings} warnings · ${s.failed} failed${s.indexable ? '' : ' · NOT INDEXABLE'}`;
+    }
+    case 'visual': {
+      const { summary: s, details: d } = shape(r, 'visual');
+      if (s.baselineCreated) return 'first run — saved as the visual baseline';
+      return d.viewports.map((v) => `${v.label} ${v.diffPercent === null ? '—' : `${v.diffPercent}%`}`).join(' · ') + ' changed';
+    }
+    case 'crossBrowser': {
+      const { summary: s } = shape(r, 'crossBrowser');
+      return `loads in ${s.loadedIn}/${s.browsersTested} browsers · ${s.browserSpecificErrors} browser-only errors${s.inconsistentLayout ? ' · layout differs' : ''}`;
     }
   }
 }

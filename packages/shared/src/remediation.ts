@@ -1,5 +1,5 @@
 // Short, practical "how to fix it" guidance attached to every issue PulseQA reports.
-import type { PerfMetricKey } from './details';
+import type { PerfMetricKey, SeoRuleId } from './details';
 
 export interface Fix {
   /** One or two sentences: what to change. */
@@ -142,3 +142,87 @@ export function perfFix(metric: PerfMetricKey, mobile = false): Fix {
   const f = PERF_TIPS[metric];
   return mobile ? { ...f, tip: `${f.tip} On mobile, also ship less JavaScript — slow CPUs spend longest parsing it.` } : f;
 }
+
+/** SEO rules (check id `seo`), keyed by rule id. */
+export const SEO_FIXES: Record<SeoRuleId, Fix> = {
+  title: {
+    tip: 'Give every page a unique, descriptive title of about 30–60 characters, with the most important words first.',
+    snippet: '<title>Running Shoes for Women – Free Delivery | ShopName</title>',
+    docs: 'https://developers.google.com/search/docs/appearance/title-link',
+  },
+  description: {
+    tip: 'Write a 70–160 character summary that makes people want to click; search engines often use it as the result snippet.',
+    snippet: '<meta name="description" content="Lightweight running shoes for women. Free delivery and 30-day returns.">',
+    docs: 'https://developers.google.com/search/docs/appearance/snippet',
+  },
+  canonical: {
+    tip: 'Tell search engines which URL is the main version of this page so tracking parameters and duplicates don’t split its ranking.',
+    snippet: '<link rel="canonical" href="https://example.com/products/shoes">',
+    docs: 'https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls',
+  },
+  robotsMeta: {
+    tip: 'This page tells search engines not to index it. Remove “noindex” (meta robots tag or X-Robots-Tag header) unless the page should really stay out of search.',
+    snippet: '<meta name="robots" content="index, follow">',
+    docs: 'https://developers.google.com/search/docs/crawling-indexing/block-indexing',
+  },
+  lang: { tip: 'Declare the page language so search engines show it to the right audience.', snippet: '<html lang="en">' },
+  h1: { tip: 'Use exactly one <h1> that says what the page is about; use <h2>–<h6> for sections.' },
+  headingOrder: { tip: 'Don’t skip heading levels (h2 → h4). A logical outline helps both search engines and screen-reader users.' },
+  imageAlt: {
+    tip: 'Describe every meaningful image in its alt attribute (use alt="" for decorative ones). Image search and screen readers rely on it.',
+    snippet: '<img src="red-shoe.jpg" alt="Red running shoe, side view">',
+  },
+  openGraph: {
+    tip: 'Add Open Graph tags so links shared on Facebook, LinkedIn, WhatsApp and Slack show a proper title, description and image (1200×630).',
+    snippet: [
+      '<meta property="og:title" content="Page title">',
+      '<meta property="og:description" content="Short summary">',
+      '<meta property="og:image" content="https://example.com/share.png">',
+      '<meta property="og:url" content="https://example.com/page">',
+    ].join('\n'),
+    docs: 'https://ogp.me/',
+  },
+  twitterCard: { tip: 'Add a Twitter/X card tag to get a large preview when the link is shared on X.', snippet: '<meta name="twitter:card" content="summary_large_image">' },
+  structuredData: {
+    tip: 'Describe the page with schema.org JSON-LD (Organization, Product, Article, FAQ…) to become eligible for rich results. Validate it with Google’s Rich Results Test.',
+    snippet: ['<script type="application/ld+json">', '{ "@context": "https://schema.org", "@type": "Organization", "name": "ShopName", "url": "https://example.com" }', '</script>'].join('\n'),
+    docs: 'https://search.google.com/test/rich-results',
+  },
+  robotsTxt: {
+    tip: 'Serve a /robots.txt that allows crawling and lists your sitemap. Never use “Disallow: /” for all user-agents on a live site.',
+    snippet: ['User-agent: *', 'Allow: /', '', 'Sitemap: https://example.com/sitemap.xml'].join('\n'),
+    docs: 'https://developers.google.com/search/docs/crawling-indexing/robots/intro',
+  },
+  sitemap: {
+    tip: 'Publish an XML sitemap of your important URLs and reference it from robots.txt (most frameworks and CMSs can generate it).',
+    snippet: [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+      '  <url><loc>https://example.com/</loc></url>',
+      '</urlset>',
+    ].join('\n'),
+    docs: 'https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap',
+  },
+};
+
+export const VISUAL_FIXES = {
+  changed: {
+    tip: 'The page looks different from the approved baseline. Compare the Baseline, Current and Diff images: if the change is intended, approve this run as the new baseline; if not, find the CSS or content change that caused it.',
+  },
+  missingBaseline: { tip: 'The baseline screenshots are gone (the baseline audit was deleted). Approve this run as the new baseline.' },
+} satisfies Record<string, Fix>;
+
+export const CROSS_BROWSER_FIXES = {
+  failsToLoad: {
+    tip: 'The page loads in Chrome but not in this browser. Open it there (Firefox, or Safari/WebKit) and check the console; common causes are unsupported JavaScript syntax or APIs, or a server that rejects the browser’s requests.',
+    docs: 'https://caniuse.com/',
+  },
+  browserOnlyError: {
+    tip: 'This JavaScript error only happens in some browsers — usually an API or syntax that browser doesn’t support. Check the feature on caniuse.com and add a fallback or polyfill, or transpile for your target browsers (Browserslist).',
+    docs: 'https://caniuse.com/',
+  },
+  layout: {
+    tip: 'Horizontal scrolling appears in only some browsers — usually a CSS feature with different support or defaults (gap, aspect-ratio, scrollbar widths). Inspect the widest element in that browser.',
+  },
+  notInstalled: { tip: 'Install the missing browser on the server so it can be tested.', snippet: 'npx playwright install firefox webkit' },
+} satisfies Record<string, Fix>;
