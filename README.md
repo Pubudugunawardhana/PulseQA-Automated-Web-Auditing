@@ -63,7 +63,7 @@ Every web app needs the same baseline quality checks before release — is it up
 | 📄 **Export & share** | Self-contained HTML report (screenshots embedded), raw JSON, or a read-only share link |
 | 🎥 **Session recording** | Every audit records a video of the browser on the page — load, checks and auto-scroll — playable in the Log tab and downloadable |
 | ⛔ **Cancel & time limits** | Cancel any running audit; hard 7-minute ceiling per audit; per-check timeouts |
-| 🔒 **Private by default** | No login needed — each browser only sees its own latest 10 audits (anonymous, hashed owner ID; older runs auto-pruned) |
+| 🔒 **Private by default** | No login needed — each browser only sees its own latest 10 audits, each kept for 10 days (anonymous, hashed owner ID; older runs auto-deleted) |
 | 🛡️ **Safe to host publicly** | SSRF guard on every navigation, redirect and link probe; rate limiting; duplicate-run protection |
 | 🚀 **Landing page** | Product landing page at `/` with a one-click *Run free audit* box (advanced options at `/new`) |
 | 🌗 **Light / dark UI** | Clean dashboard with a live terminal panel, mobile-friendly |
@@ -317,6 +317,7 @@ Set in `.env` at the project root (see [`.env.example`](.env.example)).
 | `PORT` | `4000` | API port |
 | `MAX_CONCURRENT_AUDITS` | `2` | Audits that run at the same time (others wait in the queue) |
 | `HISTORY_LIMIT` | `10` | Audits kept per browser — when a new one starts, the oldest finished ones (and their screenshots) are deleted |
+| `HISTORY_MAX_AGE_DAYS` | `10` | Audits older than this are deleted automatically (checked at startup and every hour), with their screenshots and videos |
 | `CRAWL_MAX_PAGES` | `20` | Pages the Site Crawl check visits per audit (1–200) |
 | `ALLOW_PRIVATE_HOSTS` | `true` | Allow auditing localhost / private networks. **Set `false` when hosting publicly.** |
 | `ARTIFACTS_DIR` | `./artifacts` | Where screenshots are stored |

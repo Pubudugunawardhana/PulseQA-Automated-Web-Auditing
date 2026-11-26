@@ -3,13 +3,17 @@ import { Loader2, Lock, Plus, Search, Stamp, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AuditDTO } from '@pulseqa/shared';
+import { useConfirm } from '../components/ConfirmDialog';
 import { Button, Card, Empty, scoreTone, StatusBadge } from '../components/ui';
 import { api } from '../lib/api';
 import { cn, formatDate, formatMs, hostOf } from '../lib/format';
 
 const LIMIT = 20;
 
-function Row({ a, onDelete, deleting }: { a: AuditDTO; onDelete: () => void; deleting: boolean }) {
+function Row({ a, onDelete, deleting, maxAgeDays }: { a: AuditDTO; onDelete: () => void; deleting: boolean; maxAgeDays?: number }) {
+  const confirm = useConfirm();
+  // whole days left before the retention sweep removes this audit
+  const expiresIn = maxAgeDays ? Math.ceil((new Date(a.createdAt).getTime() + maxAgeDays * 86_400_000 - Date.now()) / 86_400_000) : null;
   const busy = a.status === 'running' || a.status === 'queued';
   return (
     <tr className="group hover:bg-raised/60">
@@ -32,11 +36,32 @@ function Row({ a, onDelete, deleting }: { a: AuditDTO; onDelete: () => void; del
       <td className="px-4 py-3">
         <StatusBadge status={a.status === 'completed' && a.overallStatus ? a.overallStatus : a.status} />
       </td>
-      <td className="hidden whitespace-nowrap px-4 py-3 text-sm text-muted md:table-cell">{formatDate(a.createdAt)}</td>
+      <td className="hidden whitespace-nowrap px-4 py-3 text-sm text-muted md:table-cell">
+        {formatDate(a.createdAt)}
+        {expiresIn !== null && expiresIn <= 3 && (
+          <span className="ml-2 rounded bg-warn/10 px-1.5 py-px text-[10px] font-semibold text-warn" title="Audits are deleted automatically after the retention period">
+            {expiresIn <= 0 ? 'deleting soon' : `deleted in ${expiresIn}d`}
+          </span>
+        )}
+      </td>
       <td className="hidden whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-muted sm:table-cell">{formatMs(a.durationMs)}</td>
       <td className="px-2 py-3 text-right">
         <button
-          onClick={() => confirm(`Delete the audit of ${a.url}? This also removes its screenshots.`) && onDelete()}
+          onClick={async () => {
+            const ok = await confirm({
+              title: 'Delete this audit?',
+              message: (
+                <>
+                  The audit of <span className="break-all font-medium text-fg">{a.url}</span>
+                  {a.createdAt ? ` from ${formatDate(a.createdAt)}` : ''} will be permanently removed, together with its screenshots and session video.
+                  {a.isVisualBaseline ? ' It is the approved visual baseline — the next run of this URL will become the new one.' : ''}
+                </>
+              ),
+              confirmLabel: 'Delete audit',
+              tone: 'danger',
+            });
+            if (ok) onDelete();
+          }}
           disabled={busy || deleting}
           className="rounded-lg p-2 text-faint transition hover:bg-bad/10 hover:text-bad disabled:pointer-events-none disabled:opacity-30"
           aria-label={`Delete audit of ${a.url}`}
@@ -85,8 +110,11 @@ export function History() {
               <Lock className="size-3" /> Private to this browser
             </span>
             {data?.historyLimit && (
-              <span className="ml-2 text-xs text-faint" title="When you start a new audit, the oldest one is removed automatically.">
-                · Keeps your latest {data.historyLimit}
+              <span
+                className="ml-2 text-xs text-faint"
+                title={`Only your latest ${data.historyLimit} audits are kept, and each one is deleted automatically ${data.historyMaxAgeDays ?? 10} days after it was run.`}
+              >
+                · Latest {data.historyLimit}, kept for {data.historyMaxAgeDays ?? 10} days
               </span>
             )}
           </p>
@@ -149,7 +177,7 @@ export function History() {
             </thead>
             <tbody className="divide-y divide-line">
               {data.items.map((a) => (
-                <Row key={a.id} a={a} onDelete={() => del.mutate(a.id)} deleting={del.isPending} />
+                <Row key={a.id} a={a} onDelete={() => del.mutate(a.id)} deleting={del.isPending} maxAgeDays={data.historyMaxAgeDays} />
               ))}
             </tbody>
           </table>

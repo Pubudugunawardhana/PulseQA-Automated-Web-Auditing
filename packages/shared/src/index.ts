@@ -95,6 +95,8 @@ export interface AuditListDTO {
   items: AuditDTO[];
   /** How many audits the server keeps per browser (older ones are removed automatically). */
   historyLimit?: number;
+  /** Audits older than this many days are deleted automatically. */
+  historyMaxAgeDays?: number;
   total: number;
   page: number;
   limit: number;
