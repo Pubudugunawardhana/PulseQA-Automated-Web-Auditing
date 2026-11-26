@@ -175,3 +175,37 @@ export function Button({ variant = 'secondary', className, children, ...props }:
 
 /** Kept for compatibility: secondary button. */
 export const TermButton = (props: ButtonHTMLAttributes<HTMLButtonElement>) => <Button variant="secondary" {...props} />;
+
+/** Card with a header row (title · subtitle · action) and a body — the building block of the audit dashboard. */
+export function SectionCard({
+  title,
+  subtitle,
+  action,
+  children,
+  className,
+  bodyClassName,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+}) {
+  return (
+    <Card className={cn('flex min-w-0 flex-col', className)}>
+      <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-3.5">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
+        </div>
+        {action && <div className="shrink-0 text-sm">{action}</div>}
+      </div>
+      <div className={cn('min-w-0 flex-1', bodyClassName ?? 'p-5')}>{children}</div>
+    </Card>
+  );
+}
+
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cn('animate-pulse rounded-lg bg-raised', className)} />;
+}

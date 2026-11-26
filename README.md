@@ -56,7 +56,7 @@ Every web app needs the same baseline quality checks before release — is it up
 | ⚡ **Live progress** | Server-Sent Events stream each check as it finishes, with a terminal-style live log |
 | 📱 **Desktop + mobile** | 3 viewports (1920 · 768 · 375 px) with screenshots; throttled mobile performance profile (4G, 4× CPU); accessibility scanned on desktop **and** mobile |
 | 🎯 **Low-noise results** | First-party vs third-party error split, bot-protection detection, HEAD→GET fallback, clipped-overflow detection |
-| 📊 **Overview dashboard** | Health-score gauge, issues by type (errors / warnings / notices), per-check polar chart, KPI trend sparklines and a ranked *Top issues* list |
+| 📊 **Audit dashboard** | Tabbed workspace (Overview · Issues · Checks · Screenshots · Log) with shareable `?tab=` links — KPI tiles, ranked top issues, per-check breakdown, score-trend chart and run-to-run changes |
 | 🛠️ **How-to-fix tips** | Every issue comes with remediation guidance — what to change, where it was found, a copy-paste example (e.g. a ready CSP header) and a docs link — in the dashboard and the exported report |
 | 🔁 **Regression tracking** | Pick any earlier run of the same URL in *Compare to* — score and issue deltas, **NEW** issue badges, fixed issues |
 | 📄 **Export & share** | Self-contained HTML report (screenshots embedded), raw JSON, or a read-only share link |
@@ -80,7 +80,11 @@ Every web app needs the same baseline quality checks before release — is it up
 
 ### Overview dashboard
 
-<img src="docs/screenshots/overview.png" alt="Overview: health score gauge, issues by type, check quality chart, KPI trends and top issues" />
+<img src="docs/screenshots/overview.png" alt="Audit dashboard: header, tabs, KPI tiles, top issues, check breakdown and score trend" />
+
+| Issues tab: filter by severity / check, expand for the fix |
+|---|
+| <img src="docs/screenshots/issues.png" alt="Issues tab with severity filters and a how-to-fix panel" /> |
 
 | Detailed report (Performance: desktop vs throttled mobile) | Private history |
 |---|---|

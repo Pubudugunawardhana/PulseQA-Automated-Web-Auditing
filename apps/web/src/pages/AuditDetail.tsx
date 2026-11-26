@@ -1,276 +1,65 @@
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Ban,
-  ChevronDown,
-  Clock,
-  Copy,
-  Download,
-  ExternalLink,
-  Eye,
-  FileJson,
-  Loader2,
-  Minus,
-  Plus,
-  RotateCcw,
-  X,
-} from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CHECK_META, type AuditDetailDTO, type CheckId, type CheckResult } from '@pulseqa/shared';
-import { CheckDetails } from '../components/CheckDetails';
-import { CHECK_ICON } from '../components/checkIcons';
-import { Overview } from '../components/Overview';
-import { Button, Card, ProgressBar, ScoreRing, Spinner, StatusBadge } from '../components/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { CHECK_IDS, classifyIssues, issueKeys, type CheckId, type IssueSeverity } from '@pulseqa/shared';
+import { AuditHeader } from '../components/audit/AuditHeader';
+import { AuditTabs } from '../components/audit/AuditTabs';
+import { ChecksTab } from '../components/audit/ChecksTab';
+import { IssuesTab, type SeverityFilter } from '../components/audit/IssuesTab';
+import { TerminalLog } from '../components/audit/LogTab';
+import { OverviewTab } from '../components/audit/OverviewTab';
+import { ScreenshotsTab } from '../components/audit/ScreenshotsTab';
+import { TAB_IDS, type TabId } from '../components/audit/shared';
+import { Skeleton } from '../components/ui';
 import { api, auditKey } from '../lib/api';
-import { CHECK_FLAG, EXECUTION_ORDER, headline } from '../lib/checks';
-import { diffAudits, type CheckDiff } from '../lib/compare';
+import { EXECUTION_ORDER } from '../lib/checks';
 import { exportHtml, exportJson } from '../lib/exportReport';
-import { cn, formatDate, formatMs } from '../lib/format';
+import { formatDate } from '../lib/format';
 import { useAuditEvents } from '../lib/useAuditEvents';
 
 const clock = (d: Date) => d.toLocaleTimeString(undefined, { hour12: false });
 
-// ───────────────────────── live terminal log ─────────────────────────
-
-function TerminalLog({
-  audit,
-  selected,
-  results,
-  current,
-  times,
-}: {
-  audit: AuditDetailDTO;
-  selected: CheckId[];
-  results: Map<CheckId, CheckResult>;
-  current: CheckId | null;
-  times: Map<CheckId, string>;
-}) {
-  const aborted = audit.status === 'failed' || audit.status === 'cancelled';
+function LoadingSkeleton() {
   return (
-    <div className="terminal overflow-hidden rounded-xl border border-line text-[12.5px] leading-relaxed shadow-sm">
-      <div className="flex items-center gap-2 border-b border-line bg-raised px-3 py-1.5 text-[11px] text-muted">
-        <span className="flex gap-1.5" aria-hidden>
-          <span className="size-2.5 rounded-full bg-[#ff5f57]" />
-          <span className="size-2.5 rounded-full bg-[#febc2e]" />
-          <span className="size-2.5 rounded-full bg-[#28c840]" />
-        </span>
-        <span className="ml-2">live log — job {audit.id.slice(0, 8)}</span>
-      </div>
-      <div className="space-y-0.5 overflow-x-auto px-4 py-3">
-        <div className="whitespace-nowrap">
-          <span className="text-ok">qa@pulseqa</span>
-          <span className="text-muted">:~$</span> <span className="text-accent">audit</span> {audit.url}
+    <div className="space-y-6" aria-busy="true" aria-label="Loading audit">
+      <Skeleton className="h-4 w-40" />
+      <div className="flex items-center gap-4">
+        <Skeleton className="size-12 rounded-xl" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-6 w-64" />
+          <Skeleton className="h-4 w-96 max-w-full" />
         </div>
-        {selected.map((c) => {
-          const r = results.get(c);
-          const running = current === c;
-          return (
-            <div key={c} className={cn('flex items-baseline gap-2 whitespace-nowrap', r ? 'line-in' : running ? '' : 'text-faint')}>
-              <span className="w-[72px] shrink-0 text-muted">{r || running ? `[${times.get(c) ?? '--:--:--'}]` : ''}</span>
-              <span className="shrink-0">{r ? '✓' : running ? '▶' : '·'}</span>
-              <span className="w-20 shrink-0">{CHECK_FLAG[c]}</span>
-              <span className="min-w-6 flex-1 overflow-hidden text-faint">{'.'.repeat(80)}</span>
-              {r ? (
-                <>
-                  <span className="w-12 shrink-0 text-right">
-                    <StatusBadge status={r.status} bare />
-                  </span>
-                  <span className="w-14 shrink-0 text-right text-muted">{formatMs(r.durationMs)}</span>
-                </>
-              ) : running ? (
-                <Spinner className="text-info" label="running" />
-              ) : (
-                <span>{aborted ? 'aborted' : 'waiting'}</span>
-              )}
-            </div>
-          );
-        })}
-        {audit.status === 'queued' && (
-          <div className="text-warn">
-            <Spinner /> waiting in queue…
-          </div>
-        )}
-        {audit.status === 'completed' && (
-          <div className="pt-1 text-muted">
-            → done in {formatMs(audit.durationMs)} · score <span className="font-bold text-fg">{audit.score}/100</span>
-          </div>
-        )}
-        {audit.status === 'cancelled' && <div className="pt-1 text-warn">^C cancelled</div>}
-        {audit.status === 'failed' && <div className="pt-1 text-bad">✗ {audit.error ?? 'audit failed'}</div>}
+      </div>
+      <Skeleton className="h-11 w-full" />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-28" />
+        ))}
+      </div>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Skeleton className="h-80 lg:col-span-2" />
+        <Skeleton className="h-80" />
       </div>
     </div>
   );
 }
 
-// ───────────────────────── check card grid ─────────────────────────
-
-const STATUS_BORDER: Record<string, string> = {
-  pass: 'border-l-ok',
-  warn: 'border-l-warn',
-  fail: 'border-l-bad',
-  error: 'border-l-bad',
-  skipped: 'border-l-faint',
-};
-
-function CheckCard({
-  id,
-  result,
-  running,
-  aborted,
-  selected,
-  onSelect,
-}: {
-  id: CheckId;
-  result?: CheckResult;
-  running: boolean;
-  aborted: boolean;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const Icon = CHECK_ICON[id];
-  const status = result?.status ?? (running ? 'running' : aborted ? 'skipped' : 'pending');
-  return (
-    <button
-      onClick={onSelect}
-      disabled={!result}
-      aria-pressed={selected}
-      className={cn(
-        'group flex w-full flex-col gap-2 rounded-xl border border-l-4 border-line bg-panel p-4 text-left shadow-sm transition',
-        result ? STATUS_BORDER[result.status] : 'border-l-line',
-        result && 'hover:-translate-y-0.5 hover:shadow-md',
-        selected && 'ring-2 ring-brand/60',
-        running && 'ring-2 ring-info/40',
-        !result && !running && 'opacity-70',
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-raised text-muted">
-          <Icon className="size-4" />
-        </span>
-        <span className="min-w-0 flex-1 truncate font-medium">{CHECK_META[id].name}</span>
-        <StatusBadge status={status} />
-      </div>
-      <p className="line-clamp-2 min-h-[2.5em] text-sm text-muted">
-        {result ? headline(result) : running ? 'Running…' : aborted ? 'Not run' : CHECK_META[id].description}
-      </p>
-      <div className="flex items-center justify-between text-xs text-faint">
-        <span className="inline-flex items-center gap-1">
-          <Clock className="size-3" /> {result ? formatMs(result.durationMs) : '—'}
-        </span>
-        {result && <span className="font-medium text-brand-strong opacity-0 transition group-hover:opacity-100">{selected ? 'Hide' : 'View report'} →</span>}
-      </div>
-    </button>
-  );
-}
-
-// ───────────────────────── compare with previous run ─────────────────────────
-
-const CHANGE_STYLE: Record<CheckDiff['change'], { icon: React.ReactNode; cls: string; label: string }> = {
-  improved: { icon: <ArrowUpRight className="size-4" />, cls: 'text-ok', label: 'Improved' },
-  regressed: { icon: <ArrowDownRight className="size-4" />, cls: 'text-bad', label: 'Regressed' },
-  same: { icon: <Minus className="size-4" />, cls: 'text-muted', label: 'No change' },
-  new: { icon: <Plus className="size-4" />, cls: 'text-info', label: 'New check' },
-};
-
-function CompareCard({ audit, previous }: { audit: AuditDetailDTO; previous: AuditDetailDTO }) {
-  const diff = diffAudits(audit, previous);
-  const [showAll, setShowAll] = useState(false);
-  const changed = diff.checks.filter((c) => c.change !== 'same' || c.newIssues.length || c.fixedIssues.length);
-  const rows = showAll ? diff.checks : changed;
-  const delta = diff.scoreDelta;
-  return (
-    <Card className="p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="font-semibold">Changes since the compared run</h2>
-          <p className="text-xs text-muted">
-            Compared with{' '}
-            <Link to={`/audits/${diff.previousId}`} className="font-medium text-brand-strong hover:underline">
-              {formatDate(diff.previousAt)}
-            </Link>
-          </p>
-        </div>
-        <div className="text-right">
-          <div className="text-xs text-muted">Score</div>
-          <div className="text-lg font-semibold tabular-nums">
-            {diff.scoreBefore ?? '—'} → {audit.score ?? '—'}{' '}
-            {delta !== null && (
-              <span className={cn('text-sm', delta > 0 ? 'text-ok' : delta < 0 ? 'text-bad' : 'text-muted')}>
-                ({delta > 0 ? `+${delta}` : delta})
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-      {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">Nothing changed since the previous run.</p>
-      ) : (
-        <ul className="mt-4 divide-y divide-line">
-          {rows.map((c) => {
-            const st = CHANGE_STYLE[c.change];
-            return (
-              <li key={c.checkId} className="py-2.5">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className={cn('inline-flex items-center gap-1 font-medium', st.cls)}>
-                    {st.icon} {st.label}
-                  </span>
-                  <span className="font-medium">{CHECK_META[c.checkId].name}</span>
-                  <span className="ml-auto flex items-center gap-1.5">
-                    {c.before ? <StatusBadge status={c.before} /> : null}
-                    <span className="text-faint">→</span>
-                    <StatusBadge status={c.after} />
-                  </span>
-                </div>
-                {(c.newIssues.length > 0 || c.fixedIssues.length > 0) && (
-                  <ul className="mt-1.5 space-y-0.5 pl-6 text-xs">
-                    {c.newIssues.slice(0, 4).map((i) => (
-                      <li key={`n${i}`} className="break-all text-bad">
-                        + new: {i}
-                      </li>
-                    ))}
-                    {c.newIssues.length > 4 && <li className="text-faint">+ {c.newIssues.length - 4} more new</li>}
-                    {c.fixedIssues.slice(0, 4).map((i) => (
-                      <li key={`f${i}`} className="break-all text-ok">
-                        ✓ fixed: {i}
-                      </li>
-                    ))}
-                    {c.fixedIssues.length > 4 && <li className="text-faint">✓ {c.fixedIssues.length - 4} more fixed</li>}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {changed.length !== diff.checks.length && (
-        <button onClick={() => setShowAll((s) => !s)} className="mt-2 text-sm font-medium text-brand-strong hover:underline">
-          {showAll ? 'Show only changes' : `Show all checks (${diff.checks.length - changed.length} unchanged)`}
-        </button>
-      )}
-    </Card>
-  );
-}
-
-// ───────────────────────── page ─────────────────────────
-
 export function AuditDetail() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const { data: audit, isLoading, error } = useQuery({ queryKey: auditKey(id), queryFn: () => api.getAudit(id) });
   const live = !!audit && (audit.status === 'queued' || audit.status === 'running');
   const { running, runningSince } = useAuditEvents(id, live);
   const [notice, setNotice] = useState<string | null>(null);
-  const [selectedCheck, setSelectedCheck] = useState<CheckId | null>(null);
-  const [logOpen, setLogOpen] = useState<boolean | null>(null); // null = automatic (open while running)
-  const detailRef = useRef<HTMLDivElement>(null);
 
   const finished = !!audit && !live;
   const completed = finished && audit?.status === 'completed';
+  const isOwner = audit?.isOwner !== false; // undefined (older API) behaves like owner
+
+  // history + "compare to" (owner only; the API returns [] for others)
   const history = useQuery({ queryKey: ['history', id], queryFn: () => api.getHistory(id), enabled: completed });
-  // "Compare to": null = automatic (the run right before this one), 'none' = off
-  const [compareChoice, setCompareChoice] = useState<string | null>(null);
+  const [compareChoice, setCompareChoice] = useState<string | null>(null); // null = the run right before this one
   const earlierRuns = (history.data ?? []).filter((h) => h.id !== id);
   const compareId = compareChoice ?? earlierRuns[earlierRuns.length - 1]?.id ?? 'none';
   const compare = useQuery({
@@ -285,6 +74,7 @@ export function AuditDetail() {
   const rerun = useMutation({
     mutationFn: () => api.createAudit({ url: audit!.url, checks: audit!.checks }),
     onSuccess: (a) => navigate(`/audits/${a.id}`),
+    onError: (e) => setNotice(`Re-run failed: ${(e as Error).message}`),
   });
   const cancel = useMutation({ mutationFn: () => api.cancelAudit(id), onError: (e) => setNotice(`Couldn't cancel: ${(e as Error).message}`) });
   const exporting = useMutation({
@@ -299,30 +89,45 @@ export function AuditDetail() {
     return () => clearTimeout(t);
   }, [notice]);
 
-  useEffect(() => {
-    if (selectedCheck) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [selectedCheck]);
+  const issues = useMemo(() => (audit ? classifyIssues(audit.results) : []), [audit]);
+  const previousKeys = useMemo(() => (compareAudit ? new Set(compareAudit.results.flatMap(issueKeys)) : null), [compareAudit]);
 
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setNotice('Link copied to clipboard');
-    } catch {
-      setNotice(window.location.href);
-    }
+  // ── tab state lives in the URL (?tab=…&check=…&severity=…) so it can be shared and Back works ──
+  const tabParam = params.get('tab') as TabId | null;
+  const tab: TabId = tabParam && TAB_IDS.includes(tabParam) ? tabParam : live ? 'log' : 'overview';
+  const checkParam = params.get('check') as CheckId | null;
+  const selectedCheck = checkParam && (CHECK_IDS as readonly string[]).includes(checkParam) ? checkParam : null;
+  const severityParam = params.get('severity') as SeverityFilter | null;
+  const severity: SeverityFilter = severityParam && ['error', 'warning', 'notice'].includes(severityParam) ? severityParam : 'all';
+
+  const go = (next: Record<string, string | null>, replace = false) =>
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        for (const [k, v] of Object.entries(next)) {
+          if (v === null) p.delete(k);
+          else p.set(k, v);
+        }
+        return p;
+      },
+      { replace },
+    );
+  const setTab = (t: TabId) => {
+    go({ tab: t, check: null, severity: null });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const openCheck = (c: CheckId) => go({ tab: 'checks', check: c, severity: null });
+  const viewIssues = (s?: IssueSeverity) => {
+    go({ tab: 'issues', check: null, severity: s ?? null });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (isLoading)
-    return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="size-6 animate-spin text-muted" />
-      </div>
-    );
+  if (isLoading) return <LoadingSkeleton />;
   if (error || !audit)
     return (
       <div className="py-24 text-center">
         <p className="text-muted">{(error as Error)?.message ?? 'Audit not found'}</p>
-        <Link to="/" className="mt-3 inline-block font-medium text-brand-strong hover:underline">
+        <Link to="/new" className="mt-3 inline-block font-medium text-brand-strong hover:underline">
           Start a new audit
         </Link>
       </div>
@@ -331,6 +136,8 @@ export function AuditDetail() {
   const results = new Map(audit.results.map((r) => [r.checkId, r]));
   const selected = EXECUTION_ORDER.filter((c) => audit.checks.includes(c));
   const aborted = audit.status === 'failed' || audit.status === 'cancelled';
+  const done = audit.results.length;
+  const current = running ?? (audit.status === 'running' ? (selected.find((c) => !results.has(c)) ?? null) : null);
 
   // Real per-check start times when recorded; otherwise estimated from durations (older audits)
   const start = audit.startedAt ? new Date(audit.startedAt).getTime() : null;
@@ -348,164 +155,105 @@ export function AuditDetail() {
     prevEnd = r.startedAt ? new Date(r.startedAt).getTime() + r.durationMs : null;
   }
 
-  const counts = { pass: 0, warn: 0, fail: 0 };
-  for (const r of audit.results) {
-    if (r.status === 'pass') counts.pass++;
-    else if (r.status === 'warn') counts.warn++;
-    else if (r.status === 'fail' || r.status === 'error') counts.fail++;
-  }
-  const done = audit.results.length;
-  const current = running ?? (audit.status === 'running' ? (selected.find((c) => !results.has(c)) ?? null) : null);
-  const showLog = logOpen ?? live;
-  const isOwner = audit.isOwner !== false; // undefined (older API) behaves like owner
-  const selectedResult = selectedCheck ? results.get(selectedCheck) : undefined;
+  const shots = audit.results.reduce((n, r) => n + r.screenshots.length, 0);
+  const compareSelect = completed && earlierRuns.length > 0 && (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="shrink-0 text-muted">Compare to</span>
+      <select
+        value={compareId}
+        onChange={(e) => setCompareChoice(e.target.value)}
+        className="h-8 min-w-0 max-w-64 rounded-lg border border-line bg-panel px-2 text-sm outline-none transition focus:border-brand"
+      >
+        {[...earlierRuns].reverse().map((h) => (
+          <option key={h.id} value={h.id}>
+            {formatDate(h.createdAt)} · {h.score ?? '—'}
+          </option>
+        ))}
+        <option value="none">No comparison</option>
+      </select>
+    </label>
+  );
 
   return (
     <div className="space-y-6">
-      {!isOwner && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-info/30 bg-info/5 px-4 py-3 text-sm">
-          <Eye className="size-4 shrink-0 text-info" />
-          <span className="flex-1">
-            <span className="font-medium">Shared report — read-only.</span>{' '}
-            <span className="text-muted">This audit was run by someone else. Re-run it to get your own copy in your history.</span>
-          </span>
-        </div>
-      )}
+      <AuditHeader
+        audit={audit}
+        live={live}
+        isOwner={isOwner}
+        done={done}
+        total={selected.length}
+        current={current}
+        onRerun={() => rerun.mutate()}
+        rerunPending={rerun.isPending}
+        onCancel={() => cancel.mutate()}
+        cancelling={cancel.isPending || cancel.isSuccess}
+        onExport={(k) => exporting.mutate(k)}
+        exporting={exporting.isPending}
+        notice={notice}
+      />
 
-      {/* header */}
-      <Card className="p-5">
-        <div className="flex flex-col gap-5 md:flex-row md:items-center">
-          <ScoreRing score={audit.status === 'completed' ? audit.score : null} />
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={audit.status === 'completed' && audit.overallStatus ? audit.overallStatus : audit.status} />
-              <span className="text-xs text-muted">{formatDate(audit.createdAt)}</span>
-            </div>
-            <a href={audit.finalUrl ?? audit.url} target="_blank" rel="noreferrer" className="group flex items-center gap-1.5 text-lg font-semibold hover:underline">
-              <span className="truncate">{audit.finalUrl ?? audit.url}</span>
-              <ExternalLink className="size-4 shrink-0 text-faint group-hover:text-fg" />
-            </a>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              <span className="inline-flex items-center gap-1 text-muted">
-                <Clock className="size-3.5" /> {audit.durationMs ? formatMs(audit.durationMs) : live ? 'In progress…' : '—'}
-              </span>
-              <span className="text-ok">{counts.pass} passed</span>
-              <span className="text-warn">{counts.warn} warnings</span>
-              <span className="text-bad">{counts.fail} failed</span>
-            </div>
-            {audit.error && <p className={cn('text-sm', audit.status === 'completed' ? 'text-warn' : 'text-bad')}>{audit.error}</p>}
-          </div>
-          <div className="flex flex-wrap gap-2 md:flex-col md:items-stretch">
-            {live ? (
-              isOwner && <Button variant="danger" onClick={() => cancel.mutate()} disabled={cancel.isPending || cancel.isSuccess}>
-                {cancel.isPending || cancel.isSuccess ? <Loader2 className="size-4 animate-spin" /> : <Ban className="size-4" />}
-                {cancel.isSuccess ? 'Cancelling…' : 'Cancel audit'}
-              </Button>
-            ) : (
-              <>
-                <Button variant="primary" onClick={() => rerun.mutate()} disabled={rerun.isPending}>
-                  <RotateCcw className={cn('size-4', rerun.isPending && 'animate-spin')} /> Re-run
-                </Button>
-                <div className="flex gap-2">
-                  <Button onClick={() => exporting.mutate('html')} disabled={exporting.isPending} title="Download a self-contained HTML report">
-                    {exporting.isPending && exporting.variables === 'html' ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} Report
-                  </Button>
-                  <Button onClick={() => exporting.mutate('json')} title="Download raw results as JSON" aria-label="Export JSON">
-                    <FileJson className="size-4" />
-                  </Button>
-                  <Button onClick={copyLink} title="Copy link to this audit" aria-label="Copy link">
-                    <Copy className="size-4" />
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-        {live && (
-          <div className="mt-5">
-            <div className="mb-1.5 flex justify-between text-xs text-muted">
-              <span>{audit.status === 'queued' ? 'Waiting in queue…' : `Running ${current ? CHECK_META[current].name : 'checks'}…`}</span>
-              <span>
-                {done}/{selected.length} checks
-              </span>
-            </div>
-            <ProgressBar value={done} total={selected.length} />
-          </div>
-        )}
-        {notice && <p className="mt-3 text-sm text-muted">{notice}</p>}
-        {rerun.isError && <p className="mt-3 text-sm text-bad">Re-run failed: {(rerun.error as Error).message}</p>}
-      </Card>
+      <AuditTabs
+        active={tab}
+        onChange={setTab}
+        live={live}
+        counts={{ issues: completed ? issues.length : undefined, checks: selected.length, screenshots: shots || undefined }}
+        aside={compareSelect}
+      />
 
-      {/* live log (terminal) */}
-      <div>
-        <button onClick={() => setLogOpen(!showLog)} className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-muted hover:text-fg">
-          <ChevronDown className={cn('size-4 transition', !showLog && '-rotate-90')} />
-          {live ? 'Live log' : 'Execution log'}
-          {live && <span className="ml-1 size-1.5 animate-pulse rounded-full bg-info" />}
-        </button>
-        {showLog && <TerminalLog audit={audit} selected={selected} results={results} current={current} times={times} />}
-      </div>
+      {compareSelect && <div className="md:hidden">{compareSelect}</div>}
 
-      {completed && (
-        <Overview
-          audit={audit}
-          history={history.data ?? []}
-          compare={compareAudit}
-          compareId={compareId}
-          onCompareChange={setCompareChoice}
-          onSelectCheck={setSelectedCheck}
-        />
-      )}
-
-      {/* check cards */}
-      <div>
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-semibold">Checks</h2>
-          {finished && done > 0 && <span className="text-xs text-muted">Click a check to see its full report</span>}
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {selected.map((c) => (
-            <CheckCard
-              key={c}
-              id={c}
-              result={results.get(c)}
-              running={current === c}
-              aborted={aborted}
-              selected={selectedCheck === c}
-              onSelect={() => setSelectedCheck((s) => (s === c ? null : c))}
+      <div id="audit-tabpanel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
+        {tab === 'overview' &&
+          (completed ? (
+            <OverviewTab
+              audit={audit}
+              issues={issues}
+              history={history.data ?? []}
+              compare={compareAudit}
+              previousKeys={previousKeys}
+              onOpenCheck={openCheck}
+              onViewIssues={viewIssues}
             />
+          ) : (
+            <NotReady live={live} onLog={() => setTab('log')} />
           ))}
-        </div>
+        {tab === 'issues' &&
+          (completed ? (
+            <IssuesTab
+              issues={issues}
+              previousKeys={previousKeys}
+              severity={severity}
+              onSeverityChange={(s) => go({ severity: s === 'all' ? null : s }, true)}
+              onOpenCheck={openCheck}
+            />
+          ) : (
+            <NotReady live={live} onLog={() => setTab('log')} />
+          ))}
+        {tab === 'checks' && (
+          <ChecksTab
+            checks={selected}
+            results={results}
+            current={current}
+            aborted={aborted}
+            selected={selectedCheck}
+            onSelect={(c) => go({ check: c }, true)}
+          />
+        )}
+        {tab === 'screenshots' && <ScreenshotsTab checks={selected} results={results} />}
+        {tab === 'log' && <TerminalLog audit={audit} selected={selected} results={results} current={current} times={times} />}
       </div>
+    </div>
+  );
+}
 
-      {/* selected check report */}
-      {selectedResult && (
-        <div ref={detailRef} className="scroll-mt-20">
-          <Card className="p-5">
-            <div className="mb-4 flex items-center gap-3">
-              {(() => {
-                const Icon = CHECK_ICON[selectedResult.checkId];
-                return (
-                  <span className="grid size-9 place-items-center rounded-lg bg-raised text-muted">
-                    <Icon className="size-4.5" />
-                  </span>
-                );
-              })()}
-              <div className="min-w-0 flex-1">
-                <h2 className="font-semibold">{CHECK_META[selectedResult.checkId].name}</h2>
-                <p className="truncate text-xs text-muted">{headline(selectedResult)}</p>
-              </div>
-              <StatusBadge status={selectedResult.status} />
-              <Button variant="ghost" onClick={() => setSelectedCheck(null)} aria-label="Close report" className="px-2">
-                <X className="size-4" />
-              </Button>
-            </div>
-            <CheckDetails result={selectedResult} />
-          </Card>
-        </div>
-      )}
-
-      {compareAudit && <CompareCard audit={audit} previous={compareAudit} />}
+function NotReady({ live, onLog }: { live: boolean; onLog: () => void }) {
+  return (
+    <div className="rounded-xl border border-dashed border-line px-6 py-16 text-center">
+      <p className="font-medium">{live ? 'The audit is still running…' : 'This audit did not complete.'}</p>
+      <p className="mt-1 text-sm text-muted">{live ? 'Results appear here as soon as it finishes.' : 'See the log for what happened, or re-run it.'}</p>
+      <button onClick={onLog} className="mt-4 text-sm font-medium text-brand-strong hover:underline">
+        Open the live log →
+      </button>
     </div>
   );
 }
