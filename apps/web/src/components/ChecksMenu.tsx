@@ -16,11 +16,11 @@ export function ChecksMenu() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { pathname, hash } = useLocation();
+  const { pathname, search, hash } = useLocation();
 
   useEffect(() => {
     setOpen(false);
-  }, [pathname, hash]);
+  }, [pathname, search, hash]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -83,7 +83,7 @@ export function ChecksMenu() {
                     const Icon = CHECK_ICON[c];
                     return (
                       <li key={c}>
-                        <Link to={`/#check-${c}`} className="group flex gap-3 rounded-lg p-2 -mx-2 transition hover:bg-raised focus-visible:bg-raised">
+                        <Link to={`/new?checks=${c}`} className="group flex gap-3 rounded-lg p-2 -mx-2 transition hover:bg-raised focus-visible:bg-raised">
                           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand-strong transition group-hover:bg-brand group-hover:text-white">
                             <Icon className="size-4" />
                           </span>
@@ -102,7 +102,7 @@ export function ChecksMenu() {
         </div>
         <div className="flex flex-col gap-3 border-t border-line bg-raised/50 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted">
-            <span className="font-semibold text-fg">{CHECK_IDS.length} automated checks</span> run on every audit — each issue comes with a fix.
+            <span className="font-semibold text-fg">{CHECK_IDS.length} automated checks</span> — pick one to run it on its own, or run them all.
           </p>
           <div className="flex items-center gap-4 text-sm font-medium">
             <Link to="/#how" className="text-muted hover:text-fg">
@@ -144,7 +144,7 @@ export function MobileChecksMenu({ tabbable }: { tabbable: boolean }) {
                   return (
                     <li key={c}>
                       <Link
-                        to={`/#check-${c}`}
+                        to={`/new?checks=${c}`}
                         tabIndex={tabbable ? 0 : -1}
                         className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted hover:bg-raised hover:text-fg"
                       >

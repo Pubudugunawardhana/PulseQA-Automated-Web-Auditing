@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, Check, Clock, Globe, Loader2 } from 'lucide-react';
-import { useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CHECK_IDS, CHECK_META, type CheckId } from '@pulseqa/shared';
 import { CHECK_ICON } from '../components/checkIcons';
@@ -42,7 +42,20 @@ export function NewAudit() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [url, setUrl] = useState(() => params.get('url') ?? ''); // prefilled from the landing page
-  const [checks, setChecks] = useState<Set<CheckId>>(new Set(CHECK_IDS));
+  // ?checks=performance,seo (from the navbar menu) preselects just those checks
+  const checksParam = params.get('checks');
+  const fromParam = (): Set<CheckId> => {
+    const wanted = (checksParam ?? '').split(',').filter((c): c is CheckId => (CHECK_IDS as readonly string[]).includes(c));
+    return new Set(wanted.length ? wanted : CHECK_IDS);
+  };
+  const [checks, setChecks] = useState<Set<CheckId>>(fromParam);
+  const focused = checksParam ? [...fromParam()] : [];
+  const urlRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    setChecks(fromParam());
+    urlRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checksParam]);
   const [error, setError] = useState<string | null>(null);
   const [history] = useState<string[]>(loadHistory);
   const [histIndex, setHistIndex] = useState(-1);
@@ -101,10 +114,13 @@ export function NewAudit() {
         <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1 text-xs text-muted">
           <span className="size-1.5 rounded-full bg-brand" /> Playwright · axe-core · Core Web Vitals
         </span>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Audit any website in one click</h1>
+        <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          {focused.length === 1 ? `Run ${/^(SEO|[AEIOU])/.test(CHECK_META[focused[0]].name) ? 'an' : 'a'} ${CHECK_META[focused[0]].name} check` : 'Audit any website in one click'}
+        </h1>
         <p className="mx-auto mt-3 max-w-xl text-muted">
-          Paste a URL and PulseQA checks availability, broken links, console errors, responsive layout, accessibility, performance and
-          security headers — no test scripts needed.
+          {focused.length === 1
+            ? `${CHECK_META[focused[0]].description}. Paste a URL to run just this check — or add more checks below.`
+            : `Paste a URL and PulseQA runs up to ${CHECK_IDS.length} checks — from broken links and accessibility to visual regression, cross-browser and a site crawl. No test scripts needed.`}
         </p>
       </div>
 
@@ -115,6 +131,7 @@ export function NewAudit() {
               <span className="sr-only">Website URL</span>
               <Globe className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-faint" />
               <input
+                ref={urlRef}
                 type="text"
                 inputMode="url"
                 autoFocus
@@ -162,6 +179,15 @@ export function NewAudit() {
       </form>
 
       <div className="mt-10">
+        {focused.length > 0 && checks.size < CHECK_IDS.length && (
+          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm">
+            <span className="text-muted">Running only:</span>
+            <span className="font-medium text-fg">{[...checks].map((c) => CHECK_META[c].name).join(', ') || 'no checks'}</span>
+            <button type="button" onClick={() => setChecks(new Set(CHECK_IDS))} className="ml-auto font-medium text-brand-strong hover:underline">
+              Run all {CHECK_IDS.length} checks instead
+            </button>
+          </div>
+        )}
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">
             Checks to run <span className="font-normal text-muted">({checks.size}/{CHECK_IDS.length})</span>

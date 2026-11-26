@@ -102,7 +102,7 @@ function IconButton({ onClick, label, children, className }: { onClick?: () => v
 export function Layout() {
   const { dark, toggle } = useTheme();
   const scrolled = useScrolled();
-  const { pathname, hash } = useLocation();
+  const { pathname, search, hash } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const onLanding = pathname === '/';
@@ -111,7 +111,7 @@ export function Layout() {
   // Close the mobile menu on navigation, Escape, or a click outside
   useEffect(() => {
     setMenuOpen(false);
-  }, [pathname, hash]);
+  }, [pathname, search, hash]);
   useEffect(() => {
     if (!menuOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
