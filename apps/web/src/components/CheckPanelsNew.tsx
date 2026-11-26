@@ -7,6 +7,7 @@ import { BROWSER_NAME, type AuditDetailDTO, type CheckResult, type CrawlPage, ty
 import { api, auditKey } from '../lib/api';
 import { shape } from '../lib/checks';
 import { cn, formatDate, formatMs, hostOf } from '../lib/format';
+import { useConfirm } from './ConfirmDialog';
 import { Button, Empty, Section, Stat, StatGrid } from './ui';
 
 const RATING_ICON: Record<Rating, { cls: string; mark: string }> = {
@@ -165,6 +166,7 @@ function ViewportDiff({ v }: { v: VisualViewport }) {
 export function Visual({ r, audit }: { r: CheckResult; audit?: AuditDetailDTO }) {
   const { summary: s, details: d } = shape(r, 'visual');
   const qc = useQueryClient();
+  const confirm = useConfirm();
   const approve = useMutation({
     mutationFn: () => api.approveBaseline(audit!.id),
     onSuccess: () => {
@@ -206,7 +208,14 @@ export function Visual({ r, audit }: { r: CheckResult; audit?: AuditDetailDTO })
         {isOwner && audit && !isBaseline && audit.status === 'completed' && r.screenshots.length > 0 && (
           <Button
             variant="primary"
-            onClick={() => confirm('Use this run’s screenshots as the new baseline for this URL? Future runs will be compared with them.') && approve.mutate()}
+            onClick={async () => {
+              const ok = await confirm({
+                title: 'Approve as the new baseline?',
+                message: 'This run’s desktop and mobile screenshots become the reference for this URL. Future runs will be compared with them instead of the current baseline.',
+                confirmLabel: 'Approve baseline',
+              });
+              if (ok) approve.mutate();
+            }}
             disabled={approve.isPending}
           >
             {approve.isPending ? <Loader2 className="size-4 animate-spin" /> : <BadgeCheck className="size-4" />} Approve as new baseline

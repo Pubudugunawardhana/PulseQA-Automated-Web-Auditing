@@ -15,14 +15,14 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CHECK_IDS, CHECK_META } from '@pulseqa/shared';
 import { Gauge, PolarChart, Sparkline, StackedBar } from '../components/charts';
 import { SHORT } from '../components/audit/shared';
 import { CHECK_ICON } from '../components/checkIcons';
 import { Button, Card } from '../components/ui';
 import { api } from '../lib/api';
-import { EXECUTION_ORDER } from '../lib/checks';
+import { CHECK_CATEGORIES, EXECUTION_ORDER } from '../lib/checks';
 import { cn } from '../lib/format';
 
 function normalize(v: string) {
@@ -177,6 +177,7 @@ const LOG: [time: string, tag: string, tone: string, text: string][] = [
 ];
 
 export function Landing() {
+  const { hash } = useLocation();
   return (
     <div className="-mt-8 space-y-24 pb-8 sm:space-y-28">
       {/* hero */}
@@ -226,10 +227,18 @@ export function Landing() {
           Real Chromium, Firefox and WebKit browsers load your page — most checks reuse a single page load, so a full audit stays fast and close to what your users experience.
         </SectionHead>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {EXECUTION_ORDER.map((c) => {
+          {CHECK_CATEGORIES.flatMap((cat) => cat.checks.map((c) => ({ c, cat }))).map(({ c, cat }) => {
             const Icon = CHECK_ICON[c];
             return (
-              <Card key={c} className="group p-5 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md">
+              <Card
+                key={c}
+                id={`check-${c}`}
+                className={cn(
+                  'group scroll-mt-28 p-5 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md',
+                  hash === `#check-${c}` && 'border-brand ring-2 ring-brand/30',
+                )}
+              >
+                <span className="float-right font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">{cat.label}</span>
                 <span className="grid size-10 place-items-center rounded-xl bg-brand/10 text-brand-strong transition group-hover:bg-brand group-hover:text-white">
                   <Icon className="size-5" />
                 </span>
@@ -308,19 +317,6 @@ export function Landing() {
         </div>
       </section>
 
-      <footer className="flex flex-col items-center justify-between gap-3 border-t border-line pt-6 text-sm text-muted sm:flex-row">
-        <span>
-          Pulse<span className="text-brand-strong">QA</span> · Automated Web Auditing &amp; E2E Test Execution Platform
-        </span>
-        <span className="flex gap-4">
-          <Link to="/new" className="hover:text-fg">
-            New audit
-          </Link>
-          <Link to="/audits" className="hover:text-fg">
-            History
-          </Link>
-        </span>
-      </footer>
     </div>
   );
 }

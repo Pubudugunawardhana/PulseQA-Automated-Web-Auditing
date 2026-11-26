@@ -19,6 +19,13 @@ export const CHECK_FLAG: Record<CheckId, string> = {
 /** Same order the server runs them in, so the log reads top-to-bottom. */
 export const EXECUTION_ORDER: CheckId[] = ['smoke', 'security', 'seo', 'performance', 'consoleNetwork', 'links', 'accessibility', 'responsive', 'visual', 'crossBrowser', 'crawl'];
 
+/** How the checks are grouped in the navigation menu and on the landing page. */
+export const CHECK_CATEGORIES: { id: string; label: string; blurb: string; checks: CheckId[] }[] = [
+  { id: 'reliability', label: 'Reliability', blurb: 'Is the site up and working?', checks: ['smoke', 'links', 'consoleNetwork', 'crawl'] },
+  { id: 'experience', label: 'User experience', blurb: 'Does it work for everyone, on every screen?', checks: ['responsive', 'accessibility', 'crossBrowser', 'visual'] },
+  { id: 'trust', label: 'Speed, SEO & security', blurb: 'Is it fast, findable and safe?', checks: ['performance', 'seo', 'security'] },
+];
+
 /** The server auto-scrolls the page (lazy content) right before the first of these runs. */
 export const AFTER_SCROLL: CheckId[] = ['consoleNetwork', 'links', 'accessibility', 'responsive', 'visual', 'crossBrowser', 'crawl'];
 

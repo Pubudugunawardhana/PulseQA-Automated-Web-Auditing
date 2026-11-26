@@ -1,5 +1,5 @@
 import { AlertTriangle, Ban, CheckCircle2, CircleDashed, Clock, Loader2, MinusCircle, XCircle } from 'lucide-react';
-import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useState, type ButtonHTMLAttributes, type ComponentProps, type ReactNode } from 'react';
 import type { AuditStatus, CheckStatus, OverallStatus } from '@pulseqa/shared';
 import { cn } from '../lib/format';
 
@@ -99,8 +99,12 @@ export function ScoreRing({ score, size = 96 }: { score: number | null; size?: n
   );
 }
 
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('rounded-xl border border-line bg-panel shadow-sm', className)}>{children}</div>;
+export function Card({ children, className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div {...props} className={cn('rounded-xl border border-line bg-panel shadow-sm', className)}>
+      {children}
+    </div>
+  );
 }
 
 /** Metric tile: small label above a bold value. */
@@ -150,15 +154,16 @@ export function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   );
 }
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerSolid';
 const BUTTON: Record<ButtonVariant, string> = {
   primary: 'bg-brand-strong text-white hover:brightness-110 shadow-sm',
   secondary: 'border border-line bg-panel text-fg hover:bg-raised',
   ghost: 'text-muted hover:bg-raised hover:text-fg',
   danger: 'border border-bad/30 bg-bad/10 text-bad hover:bg-bad/15',
+  dangerSolid: 'bg-bad text-white hover:brightness-110 shadow-sm',
 };
 
-export function Button({ variant = 'secondary', className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+export function Button({ variant = 'secondary', className, children, ...props }: ComponentProps<'button'> & { variant?: ButtonVariant }) {
   return (
     <button
       {...props}

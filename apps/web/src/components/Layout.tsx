@@ -3,8 +3,10 @@ import { Activity, History, Menu, Moon, Plus, Sun, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { cn } from '../lib/format';
+import { GitHubMark, REPO_URL } from './brand';
+import { ChecksMenu, MobileChecksMenu } from './ChecksMenu';
+import { Footer } from './Footer';
 
-const REPO_URL = 'https://github.com/Pubudugunawardhana/PulseQA-Automated-Web-Auditing';
 
 function useHealth() {
   return useQuery({
@@ -55,13 +57,6 @@ function useHashScroll() {
   }, [pathname, hash]);
 }
 
-function GitHubMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" fill="currentColor" className={className} aria-hidden>
-      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-    </svg>
-  );
-}
 
 function StatusPill({ className }: { className?: string }) {
   const health = useHealth();
@@ -86,7 +81,6 @@ function StatusPill({ className }: { className?: string }) {
 
 /** Product sections live on the landing page; app pages are real routes. */
 const SECTION_LINKS = [
-  { to: '/#checks', label: 'Checks' },
   { to: '/#how', label: 'How it works' },
   { to: '/#features', label: 'Features' },
 ];
@@ -134,7 +128,7 @@ export function Layout() {
   const solid = scrolled || !onLanding || menuOpen;
 
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-panel focus:px-3 focus:py-2 focus:text-sm focus:shadow-lg"
@@ -149,7 +143,7 @@ export function Layout() {
           solid ? 'border-line bg-panel/80 shadow-[0_1px_12px_-6px_rgb(0_0_0/0.15)] backdrop-blur-lg' : 'border-transparent bg-transparent',
         )}
       >
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4">
+        <div className="relative mx-auto flex h-16 max-w-6xl items-center gap-2 px-4">
           {/* brand */}
           <Link to="/" className="group mr-4 flex items-center gap-2.5 font-semibold" aria-label="PulseQA home">
             <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-brand to-brand-strong text-white shadow-sm shadow-brand/30 transition group-hover:scale-105">
@@ -162,6 +156,7 @@ export function Layout() {
 
           {/* desktop links */}
           <nav aria-label="Main" className="hidden items-center md:flex">
+            <ChecksMenu />
             {SECTION_LINKS.map((l) => (
               <Link key={l.to} to={l.to} className="rounded-md px-3 py-2 text-sm font-medium text-muted transition-colors hover:text-fg">
                 {l.label}
@@ -226,6 +221,7 @@ export function Layout() {
         >
           <div className="overflow-hidden">
             <nav aria-label="Mobile" className="mx-auto max-w-6xl space-y-1 px-4 py-4">
+              <MobileChecksMenu tabbable={menuOpen} />
               {SECTION_LINKS.map((l) => (
                 <Link key={l.to} to={l.to} tabIndex={menuOpen ? 0 : -1} className="block rounded-lg px-3 py-2.5 text-sm font-medium text-muted hover:bg-raised hover:text-fg">
                   {l.label}
@@ -264,9 +260,10 @@ export function Layout() {
         </div>
       </header>
 
-      <main id="main" className="mx-auto max-w-6xl px-4 py-8">
+      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <Outlet />
       </main>
+      <Footer />
     </div>
   );
 }
